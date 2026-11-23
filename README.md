@@ -12,6 +12,30 @@ adds those, and nothing else.
 **It ships with zero skills.** A bundled skill would sit in context and fire before
 you decided you wanted it.
 
+## Origin
+
+This exists because of a constraint.
+
+The workflow it reproduces — skills loaded only when the prompt needs them, skills
+that improve with use, jobs that run on a schedule, memory that lives outside the
+session and an extended memory you can search — was already working. It ran under
+[Hermes Agent](https://hermes-agent.nousresearch.com/docs): a runner that mirrors
+skills from a shared tree, distils a working session into a new skill, and queries
+an external markdown knowledge base by meaning.
+
+One environment only permits Claude Code. Nothing else can be installed there.
+
+So the choice was not "write a plugin" versus "do nothing". It was: rebuild the
+parts that carry their weight inside the only tool allowed, or lose them. Every
+feature here answers a need that came from that rebuild, and the ones that turned
+out not to transfer are documented instead of faked — see
+[the distillation section](#feature-distillation), where the child is fenced and
+the credential is probed rather than assumed.
+
+The constraint is also why this repo ships empty. A migration that silently
+installs skills you did not choose is not a migration, it is an ambush.
+
+
 ## Install
 
 Requires Python 3.9+ and Claude Code 2.x.

@@ -3,6 +3,23 @@
 Honest provenance, because "inspired by" is doing a lot of work in a lot of
 READMEs and a reader deserves better.
 
+## Why this exists at all
+
+Not because Claude Code needed another plugin. Because one environment permits
+Claude Code and nothing else, and the workflow being given up there — skills read
+on demand, skills improved by use, scheduled jobs, memory outside the session, an
+extended memory you can search — was already in daily use under the Hermes Agent
+runner. The options were to rebuild the parts that carry their weight inside the
+only permitted tool, or lose them.
+
+That constraint explains several choices that otherwise look arbitrary: why this
+repo ships no skills (a migration you did not ask for is an ambush), why import is
+explicit rather than automatic, and why the distillation worker probes for a
+credential instead of assuming one.
+
+It also sets the bar for honesty below. Where something could not be carried over,
+it says so instead of imitating the original's shape.
+
 ## The reference implementation
 
 [`UniM0cha/self-improving-skills`](https://github.com/UniM0cha/self-improving-skills)
@@ -52,17 +69,27 @@ bytes, restore the origin. See `tests/test_symlink_guard.py` for the assertion
 that this works.
 
 **The background distiller.** Theirs runs a detached `claude -p` worker with a
-SQLite queue. It is a good design and it needs a headless credential, which is a
-subscription-gated `setup-token` — so on a machine without one it degrades to an
-interrupting in-turn nudge. v0.1 of smartclaude does not ship it at all: a
-distiller that silently does nothing is worse than no distiller, and the
-knowledge-base write-back covers the same need with a human in the loop.
+SQLite queue. The shape is good and it was carried over — threshold detection,
+a durable queue, a detached child — but on different terms:
+
+- the credential is **probed**, not assumed. `claude auth status` reports
+  `loggedIn: true` while `claude -p` still returns 401, so only a real call counts;
+  with no credential the loop degrades to a nudge instead of retrying in a loop
+- the child is **fenced**: no Bash, writes only under the skills root, credential
+  paths denied, and the transcript is declared untrusted data
+- the guard that judges what the child wrote **follows symlinks**, so the path
+  their implementation could not see is here validated and reversible
+
+Their version still ships the blind spot on the most frequent route, because PATCH
+is its preferred action.
 
 **The curator loop.** Theirs ages unused agent-created skills to stale at 30 days
 and archives at 45, keyed on `origin: distilled` in the frontmatter so
-hand-written and linked-in skills are skipped. Sensible, and unnecessary here:
-with no auto-distiller there is no fast growth to prune, and the knowledge base
-already has git history.
+hand-written and linked-in skills are skipped. Sensible, and not implemented here:
+the queue has no aging policy. Distillation in this repo only runs when a segment
+clears a volume threshold, and turning off a skill a human imported is the
+operator's call, not a timer's. The audit reports which skills were never used
+recently; deleting them is a separate decision.
 
 ## What was added
 
