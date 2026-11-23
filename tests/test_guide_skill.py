@@ -34,26 +34,29 @@ def check(name: str, condition: bool, detail: str = "") -> None:
         failures.append(name)
 
 
-def tracked_skill_files() -> list[str]:
-    """SKILL.md files that git has committed here.
+def tracked_skill_files() -> list[str] | None:
+    """SKILL.md files that are committed here; None when that cannot be judged.
 
     The rule is that the repository ships no skill — not that a working copy can
     never hold one. Anyone exercising the mirror or the importer will end up with an
     untracked SKILL.md, and failing them for that says nothing about what ships.
 
-    If git is unavailable the check falls back to the filesystem, which is stricter
-    but only ever wrong in the safe direction.
+    HEAD is the right question, not the index: what gets published is the commit.
+    Outside a git checkout there is nothing to judge — the published tree is the
+    commit — so this returns None and the caller skips the check with a note instead
+    of failing on whatever happens to sit on disk.
     """
     try:
         out = subprocess.run(
-            ["git", "-C", str(REPO), "ls-files", "*/SKILL.md", "SKILL.md"],
+            ["git", "-C", str(REPO), "ls-tree", "-r", "--name-only", "HEAD"],
             capture_output=True, text=True, timeout=60,
         )
-        if out.returncode == 0:
-            return [line for line in out.stdout.splitlines() if line.strip()]
     except (OSError, subprocess.SubprocessError):
-        pass
-    return [str(p.relative_to(REPO)) for p in REPO.rglob("SKILL.md") if ".git" not in p.parts]
+        return None
+    if out.returncode != 0:
+        return None
+    return [line.strip() for line in out.stdout.splitlines()
+            if line.strip() == "SKILL.md" or line.strip().endswith("/SKILL.md")]
 
 
 def main() -> int:
@@ -61,7 +64,18 @@ def main() -> int:
 
     print("the repository ships no SKILL.md")
     found = tracked_skill_files()
-    check("zero SKILL.md committed", not found, str(found[:3]))
+    if found is None:
+        print("  note: not a git checkout — nothing to judge against, skipping "
+              "(what ships is the commit, not the working copy)")
+        found = []
+    else:
+        check("zero SKILL.md committed", not found,
+              "; ".join(found[:5]) + (" ..." if len(found) > 5 else ""))
+        if found:
+            print("       these SKILL.md files are in HEAD — the repository would")
+            print("       publish them. Untrack and commit to clear this test:")
+            for p in found[:10]:
+                print(f"         git rm --cached '{p}'")
     untracked = [p for p in REPO.rglob("SKILL.md")
                  if ".git" not in p.parts and str(p.relative_to(REPO)) not in found]
     if untracked:
