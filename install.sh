@@ -4,9 +4,10 @@
 #
 # Windows uses install.ps1; this script refuses to run there rather than pretending.
 #
-# COVERAGE: the Linux path is tested end to end (fresh install, idempotent second
-# run, --uninstall). The macOS path is NOT tested — the Darwin branch detects the
-# platform and offers `brew install python@3.12`, but no Mac has run it.
+# COVERAGE: both paths are tested end to end — Linux on Void x86_64 (fresh install,
+# idempotent second run, --uninstall) and macOS on a real Mac (install completed).
+# Untested on macOS: whether the plugin then loads and its hooks fire. The Windows
+# path lives in install.ps1 and has not been run on Windows.
 #
 # Design rules:
 #   - check before act: a missing prerequisite stops the install instead of

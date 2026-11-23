@@ -340,7 +340,8 @@ than one that has none.
 | | Status |
 |---|---|
 | **Linux `install.sh`** | **Tested end to end** on Void Linux x86_64 — fresh install, second run (idempotent), and `--uninstall`, each verified afterwards with `claude plugin list`. |
-| **macOS `install.sh`** | **Not tested.** The Darwin branch is written — it detects the platform and offers `brew install python@3.12` when Python is missing — but no Mac has run it. |
+| **macOS `install.sh`** | **Tested end to end** on a real Mac: prerequisites, manifest validation, tests, marketplace registration and plugin install all completed. |
+| **The plugin running on macOS** | **Not verified.** The installer completed; nobody has since checked that the plugin loads, that hooks fire, or that the audit reads the right tree on that machine. |
 | **Windows `install.ps1`** | **Not tested.** See below. |
 | **PowerShell 5.1** | **Not tested.** The script accepts 5.1 (`PSEdition -eq 'Desktop'`), but only PowerShell 7.7 Core on Linux was exercised. |
 | **The plugin itself** | Tested on Linux with Claude Code 2.1.187: manifest validation, both test suites, install, idempotency, uninstall. |
@@ -399,10 +400,12 @@ because they are instructions rather than processes.
 - Plugins added there get a graphical manager; `~/.claude/skills/` still loads
   automatically as `name@skills-dir`.
 
-**What I have not verified:** no desktop app was available on the machine where this
-was written, so the desktop rows above come from Anthropic's documentation rather
-than from a run. The terminal row is the one exercised end to end by
-`tests/` and `install.sh`.
+**What I have not verified:** the desktop rows above come from Anthropic's
+documentation rather than from a run — the machine this was written on has the CLI
+only. What *has* been run: the terminal path end to end on Linux (`tests/` and
+`install.sh`), and `install.sh` end to end on a real Mac. Nobody has yet confirmed
+that the plugin loads and its hooks fire on macOS, so "the installer works there" and
+"the plugin works there" remain two separate claims.
 
 ### Installing on the desktop
 
