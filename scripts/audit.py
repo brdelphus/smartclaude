@@ -455,15 +455,22 @@ def main() -> int:
     )
     hint = ""
     if not measured:
-        found_venv = [c for c in TOKENIZER_PROBES if os.path.isfile(c)]
+        probes = []
+        for root in _kb_roots():
+            for rel in (("bin", "python"), ("Scripts", "python.exe")):
+                probes.append(os.path.join(root, ".venv", *rel))
+        found_venv = [c for c in probes if os.path.isfile(c)]
         pip_dir = os.path.dirname(found_venv[0]) if found_venv else None
         hint = "\n  Token ceiling numbers below are a guess, not a measurement."
+        hint += f"\n  running on : {ORIGINAL_PYTHON}"
+        if ORIGINAL_PYTHON != sys.executable:
+            hint += f"\n  switched to: {sys.executable}"
         if pip_dir:
             hint += f"\n  install it where the audit looks: "
             hint += f"\n    {os.path.join(pip_dir, 'pip')} install tiktoken"
         else:
             hint += "\n  no knowledge-base environment found; looked for:"
-            for probe in TOKENIZER_PROBES:
+            for probe in probes:
                 hint += f"\n    {probe}"
             hint += "\n  run install.sh, or pip install tiktoken in the python you run this with."
             hint += "\n  Re-running under that interpreter needs a venv at "

@@ -99,10 +99,22 @@ produced here means exactly what the same number means there.
 
 ## Gotchas
 
-- **Token counts are only exact if `tiktoken` is installed.** The script says which
-  mode it used in its header. If it says ESTIMATED, tell the operator, and offer
-  `pip install tiktoken` to get the real number. Never present an estimate as
-  measured.
+- **If the report says ESTIMATED, the numbers are a guess — say so, and do not
+  quietly report them as fact.** Then run the diagnostic instead of guessing why:
+
+  ```bash
+  python3 "${CLAUDE_PLUGIN_ROOT}/scripts/audit.py" --doctor
+  ```
+
+  It prints which interpreter runs the audit, whether that one can measure, which
+  environment it borrows the tokenizer from, and every path it tried. Show that output
+  to the operator. A report that estimates from character count can be off by a factor
+  of two at the 5,000-token ceiling — on a 201-skill tree the estimate found 16 skills
+  over the limit and measuring found 34.
+
+  Do not tell the operator to "install tiktoken" without reading the doctor first: on
+  a machine where it *is* installed, the problem is which interpreter is running, and
+  installing it again fixes nothing.
 - **`NEVER SAYS WHEN` is a text match, not a judgement.** It catches the common
   phrasings. A description can pass the check and still be useless. Read the
   flagged ones and sanity-check a couple that passed.
