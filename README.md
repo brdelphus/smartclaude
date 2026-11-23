@@ -87,6 +87,42 @@ creates its state directory, runs the test suite, and prints what to do next. It
 refuses to continue on a missing prerequisite rather than installing something
 half-working.
 
+### What it writes to your CLAUDE.md
+
+The installer adds one block to `~/.claude/CLAUDE.md` (or `$CLAUDE_CONFIG_DIR/CLAUDE.md`)
+telling Claude that the extended memory exists and when to search it. It **never
+rewrites the file** — the edit is confined to two markers:
+
+```markdown
+@RTK.md
+
+<!-- smartclaude:begin -->
+...what the block says...
+<!-- smartclaude:end -->
+```
+
+Everything outside those markers is preserved byte for byte, including CRLF line
+endings, encoding, and `@import` lines. Three behaviours follow from that:
+
+- **If the file exists, it is appended to.** If it does not exist, it is created.
+- **Installing twice changes nothing** — the second run reports `already up to date`
+  and does not touch the file.
+- **A half-written block is refused, not repaired.** One `begin` without an `end`
+  means someone edited by hand or a write was truncated; guessing where the block
+  ends risks deleting your text, so the installer stops and tells you to fix the
+  markers yourself.
+
+`./install.sh --uninstall` removes only the block and leaves your file as it was —
+verified byte for byte in `tests/test_instructions.py`.
+
+Run it on its own at any time:
+
+```bash
+python3 scripts/instructions.py status    # is the block present?
+python3 scripts/instructions.py install   # add or refresh it
+python3 scripts/instructions.py remove    # take it out
+```
+
 ## Commands
 
 | Command | What it does |

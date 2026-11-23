@@ -145,6 +145,9 @@ if ($Uninstall) {
     & $claudeExe plugin marketplace remove $MarketName 2>$null
     if ($LASTEXITCODE -eq 0) { Write-Ok 'marketplace removed' } else { Write-Warn 'marketplace was not registered' }
 
+    $instrOut = & $pyExe @pyArgs (Join-Path $RepoRoot 'scripts/instructions.py') remove 2>&1
+    if ($instrOut) { Write-Ok ($instrOut -join ' ') }
+
     Write-Warn 'state (queue, snapshots) kept under your config dir — delete it by hand to remove'
     Write-Say ''
     Write-Say 'Done.'
@@ -218,6 +221,13 @@ if ($installed -match [regex]::Escape($PluginName)) {
 # ---------------------------------------------------------------------------
 # 8. Next steps
 # ---------------------------------------------------------------------------
+
+Write-Step 'CLAUDE.md'
+# Append our block to the operator's CLAUDE.md, or create it when there is none.
+# Content outside our markers is never touched (see scripts/instructions.py).
+$instrOut = & $pyExe @pyArgs (Join-Path $RepoRoot 'scripts/instructions.py') install 2>&1
+if ($LASTEXITCODE -ne 0) { Write-Die "could not update CLAUDE.md: $($instrOut -join ' ')" }
+Write-Ok ($instrOut -join ' ')
 
 Write-Step 'Installed'
 

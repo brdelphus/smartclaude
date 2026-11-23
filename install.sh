@@ -147,6 +147,8 @@ if [ "${UNINSTALL:-0}" = "1" ]; then
   warn "state (queue, snapshots) kept at \${SMARTCLAUDE_STATE_DIR:-~/.claude/smartclaude} — delete it by hand to remove"
   say ""
   say "Done."
+  INSTR_OUT="$("$PY_BIN" "$REPO_ROOT/scripts/instructions.py" remove 2>&1)" || true
+  [ -n "$INSTR_OUT" ] && ok "$INSTR_OUT"
   exit 0
 fi
 
@@ -211,6 +213,14 @@ fi
 # ---------------------------------------------------------------------------
 # 8. Next steps
 # ---------------------------------------------------------------------------
+
+step "CLAUDE.md"
+# Add our block to the operator's CLAUDE.md, or create the file if there is none.
+# Never rewrites what is already there: everything outside our markers is
+# preserved byte for byte (see scripts/instructions.py).
+INSTR_OUT="$("$PY_BIN" "$REPO_ROOT/scripts/instructions.py" install 2>&1)" \
+  || die "could not update CLAUDE.md: $INSTR_OUT"
+ok "$INSTR_OUT"
 
 step "Installed"
 
