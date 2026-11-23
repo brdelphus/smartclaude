@@ -237,9 +237,16 @@ if ($LASTEXITCODE -ne 0) { Write-Warn ($guideOut -join ' ') } else { Write-Ok ($
 
 Write-Step 'Knowledge base'
 # Local, unversioned: markdown notes plus a Chroma index. Never fatal.
-$kbOut = & $pyExe @pyArgs (Join-Path $RepoRoot 'scripts/kb_init.py') install 2>&1
-$kbText = ($kbOut -join "`n")
-if ($kbText -match 'warning:') { Write-Warn $kbText } else { Write-Ok $kbText }
+#
+# Uncapped on purpose: this installs chromadb (onnxruntime, numpy, tokenizers - a few
+# hundred megabytes). Captured, it looked like a hang for minutes on a working link.
+& $pyExe @pyArgs (Join-Path $RepoRoot 'scripts/kb_init.py') install
+$kbRc = $LASTEXITCODE
+switch ($kbRc) {
+    0 { Write-Ok 'knowledge base ready' }
+    2 { Write-Warn 'knowledge base created, index missing - the message above says how to finish by hand' }
+    default { Write-Warn 'knowledge base could not be created - see the message above' }
+}
 
 Write-Step 'Installed' 
 

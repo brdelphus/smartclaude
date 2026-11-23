@@ -237,12 +237,17 @@ step "Knowledge base"
 # Local, unversioned: markdown notes plus a Chroma index. Never fatal — if chromadb
 # cannot be installed the notes folder still exists and the warning says how to
 # finish by hand.
-KB_OUT="$("$PY_BIN" "$REPO_ROOT/scripts/kb_init.py" install 2>&1)" || true
-if printf '%s' "$KB_OUT" | grep -q 'warning:'; then
-  warn "$KB_OUT"
-else
-  ok "$KB_OUT"
-fi
+#
+# Run it uncaptured on purpose. This step installs chromadb, which drags in
+# onnxruntime, numpy and tokenizers — a few hundred megabytes. Captured with --quiet
+# it looked exactly like a hang, on a machine that was downloading perfectly well.
+KB_RC=0
+"$PY_BIN" "$REPO_ROOT/scripts/kb_init.py" install || KB_RC=$?
+case "$KB_RC" in
+  0) ok "knowledge base ready" ;;
+  2) warn "knowledge base created, index missing — the message above says how to finish by hand" ;;
+  *) warn "knowledge base could not be created — see the message above" ;;
+esac
 
 step "Installed"
 

@@ -102,6 +102,20 @@ def main() -> int:
     st = kb_init.status(root)
     check("status finds notes", any("note(s)" in s for s in st.steps), str(st.steps))
 
+    print("a venv without pip is detected before it wastes a pip run")
+    # Debian and Ubuntu ship a python3 whose `-m venv` yields no pip unless
+    # python3-venv is installed. Bootstrap is covered by ensurepip at install time;
+    # here we only prove the detector tells the two apart.
+    bare = tmp / "barevenv"
+    subprocess.run([sys.executable, "-m", "venv", "--without-pip", str(bare)],
+                   capture_output=True)
+    bare_python = kb_init._venv_python(bare)
+    check("venv without pip is reported as such", kb_init._has_pip(bare_python) is False)
+    with_pip = tmp / "pipvenv"
+    subprocess.run([sys.executable, "-m", "venv", str(with_pip)], capture_output=True)
+    check("venv with pip is reported as such",
+          kb_init._has_pip(kb_init._venv_python(with_pip)) is True)
+
     print("chromadb is available for the functional checks")
     python = kb_init._venv_python(root / ".venv")
     if not deps:

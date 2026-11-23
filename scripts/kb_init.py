@@ -106,40 +106,107 @@ def _has_chromadb(python: Path) -> bool:
         return False
 
 
-def _build_venv(root: Path) -> tuple[bool, str]:
-    """Create the venv and install chromadb. Returns (ok, message)."""
+def _say(verbose: bool, message: str) -> None:
+    """Progress goes to stderr, so a caller can still capture the result line."""
+    if verbose:
+        print(f"  {message}", file=sys.stderr, flush=True)
+
+
+def _has_pip(python: Path) -> bool:
+    try:
+        return subprocess.run(
+            [str(python), "-m", "pip", "--version"],
+            capture_output=True, timeout=120,
+        ).returncode == 0
+    except (OSError, subprocess.SubprocessError):
+        return False
+
+
+def _run(cmd: list[str], verbose: bool, timeout: int) -> tuple[int, str]:
+    """Run a command, streaming its output when verbose, and keep the tail.
+
+    Capturing and quieting made a working download look like a hang. Streaming alone
+    would throw the error away, and then the operator gets "could not install
+    chromadb: " with no reason. So: stream if asked, always keep the last lines.
+    """
+    if not verbose:
+        proc = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout)
+        return proc.returncode, ((proc.stderr or "") + (proc.stdout or ""))
+
+    proc = subprocess.Popen(
+        cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+        text=True, bufsize=1,
+    )
+    tail: list[str] = []
+    assert proc.stdout is not None
+    for line in proc.stdout:
+        print(line, end="", flush=True)
+        tail.append(line.rstrip())
+        if len(tail) > 40:
+            tail.pop(0)
+    try:
+        return proc.wait(timeout=timeout), "\n".join(tail)
+    except subprocess.TimeoutExpired:
+        proc.kill()
+        return 1, f"timed out after {timeout}s"
+
+
+def _build_venv(root: Path, verbose: bool = False) -> tuple[bool, str]:
+    """Create the venv and install chromadb. Returns (ok, message).
+
+    ``verbose`` lets pip draw its own progress bar and the caller see it. Installing
+    chromadb pulls onnxruntime, numpy and tokenizers — a few hundred megabytes. With
+    output captured and --quiet, that is several minutes of an installer appearing to
+    hang on a machine that is working perfectly.
+    """
     venv = root / ".venv"
     python = _venv_python(venv)
 
     if not python.is_file():
+        _say(verbose, f"creating the Python environment at {venv}")
         try:
             subprocess.run(
                 [sys.executable, "-m", "venv", str(venv)],
-                check=True, capture_output=True, timeout=VENV_TIMEOUT,
+                check=True, capture_output=not verbose, timeout=VENV_TIMEOUT,
             )
         except (OSError, subprocess.SubprocessError) as exc:
             return False, f"could not create the venv: {exc.__class__.__name__}"
 
+    # Debian and Ubuntu ship a python3 whose venv has no pip unless python3-venv is
+    # installed; `python -m venv` succeeds and every later pip call says "No module
+    # named pip". ensurepip is bundled with CPython and fixes it.
+    if not _has_pip(python):
+        _say(verbose, "the new environment has no pip — bootstrapping it with ensurepip")
+        _run([str(python), "-m", "ensurepip", "--default-pip"], verbose, VENV_TIMEOUT)
+        if not _has_pip(python):
+            return False, ("the environment has no pip and ensurepip could not provide one. "
+                           "On Debian or Ubuntu install it first: sudo apt install python3-venv")
+
     if _has_chromadb(python):
         return True, "chromadb already present"
 
-    for extra in ([], ["--user"]):
-        try:
-            proc = subprocess.run(
-                [str(python), "-m", "pip", "install", "--quiet", *extra, "chromadb"],
-                capture_output=True, text=True, timeout=VENV_TIMEOUT,
-            )
-        except (OSError, subprocess.SubprocessError) as exc:
-            return False, f"pip failed: {exc.__class__.__name__}"
-        if proc.returncode == 0 and _has_chromadb(python):
-            return True, "chromadb installed"
-        last = (proc.stderr or proc.stdout or "").strip().splitlines()[-1:] or [""]
-        message = last[0][:160]
-    return False, f"could not install chromadb ({message})"
+    _say(verbose, "installing chromadb — this downloads a few hundred MB "
+                  "(onnxruntime, numpy, tokenizers) and can take minutes on a slow link")
+    # No --user fallback: pip refuses it outright inside a virtualenv ("Can not
+    # perform a '--user' install"), so the retry could never succeed and only buried
+    # the first, real error under a second, invented one.
+    cmd = [str(python), "-m", "pip", "install"]
+    if not verbose:
+        cmd.append("--quiet")
+    cmd.append("chromadb")
+    try:
+        code, output = _run(cmd, verbose, VENV_TIMEOUT)
+    except (OSError, subprocess.SubprocessError) as exc:
+        return False, f"could not run pip: {exc.__class__.__name__}"
+    if code == 0 and _has_chromadb(python):
+        return True, "chromadb installed"
+    tail = output.strip().splitlines()[-1:] or ["no output"]
+    return False, f"could not install chromadb: {tail[0][:200]}"
 
 
-def _reindex(root: Path) -> tuple[bool, str]:
+def _reindex(root: Path, verbose: bool = False) -> tuple[bool, str]:
     python = _venv_python(root / ".venv")
+    _say(verbose, "indexing the notes")
     try:
         proc = subprocess.run(
             [str(python), str(root / "vk.py"), "index"],
@@ -153,23 +220,28 @@ def _reindex(root: Path) -> tuple[bool, str]:
     return True, (proc.stdout or "").strip().splitlines()[-1][:120] if proc.stdout.strip() else "indexed"
 
 
-def install(root: Path | None = None, install_deps: bool = True) -> Result:
+def install(root: Path | None = None, install_deps: bool = True, verbose: bool = False) -> Result:
     """Create the knowledge base.
 
     ``install_deps=False`` builds the layout and the indexer but skips the venv and
-    the chromadb install. That path takes milliseconds instead of half a minute and
+    the chromadb install. That path takes milliseconds instead of half an hour and
     needs no network, which is what the test suite uses for its structural checks —
     a test suite should not silently hit PyPI. The installer always leaves it True.
+
+    ``verbose`` narrates each step on stderr. An installer that goes quiet for
+    minutes while pip runs looks broken, and the operator kills it.
     """
     root = Path(root).expanduser() if root else default_root()
     steps: list[str] = []
 
     fresh = not root.exists()
+    _say(verbose, f"knowledge base at {root}")
     for sub in ("categorias/geral",):
         (root / sub).mkdir(parents=True, exist_ok=True)
     (root / "README.md").write_text(README, encoding="utf-8")
 
     if VK_TEMPLATE.is_file():
+        _say(verbose, "writing the indexer")
         shutil.copyfile(VK_TEMPLATE, root / "vk.py")
         os.chmod(root / "vk.py", 0o755)
         steps.append("indexer written")
@@ -181,7 +253,7 @@ def install(root: Path | None = None, install_deps: bool = True) -> Result:
         return Result("exists" if not fresh else "created-no-index", root, steps,
                       "dependencies were not installed")
 
-    ok, message = _build_venv(root)
+    ok, message = _build_venv(root, verbose=verbose)
     if not ok:
         return Result(
             "created-no-index", root, steps,
@@ -190,7 +262,7 @@ def install(root: Path | None = None, install_deps: bool = True) -> Result:
         )
     steps.append(message)
 
-    indexed, index_message = _reindex(root)
+    indexed, index_message = _reindex(root, verbose=verbose)
     if indexed:
         steps.append(index_message)
     else:
@@ -220,10 +292,14 @@ def _main(argv: list[str]) -> int:
     ap.add_argument("action", nargs="?", default="install", choices=["install", "status"])
     ap.add_argument("--root", help="where to create it (default: XDG data dir)")
     ap.add_argument("--json", action="store_true")
+    ap.add_argument("--quiet", action="store_true",
+                    help="no progress on stderr (the result line still prints)")
     args = ap.parse_args(argv)
 
-    fn = {"install": install, "status": status}[args.action]
-    result = fn(Path(args.root) if args.root else None)
+    if args.action == "install":
+        result = install(Path(args.root) if args.root else None, verbose=not args.quiet)
+    else:
+        result = status(Path(args.root) if args.root else None)
 
     if args.json:
         print(json.dumps({
@@ -232,7 +308,13 @@ def _main(argv: list[str]) -> int:
         }))
     else:
         print(result.describe())
-    return 1 if result.action == "error" else 0
+    # created-no-index is not a failure — the notes work, the index is just absent —
+    # but it is not success either, and the caller has to be able to tell.
+    if result.action == "error":
+        return 1
+    if result.action == "created-no-index":
+        return 2
+    return 0
 
 
 if __name__ == "__main__":
