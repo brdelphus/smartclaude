@@ -310,6 +310,15 @@ and reports the four things that actually cost you:
 Plus, in a tree that mirrors by symlink: which skills are links into another tree,
 and which links point at nothing — a skill that silently stopped existing.
 
+**It also says how to fix them.** `--explain` prints, for every flagged skill, the
+file to edit and what to change in it — and for a mirrored skill it prints the path
+at the **origin** of the link, because editing the link edits another tree. Flagging
+a skill without saying where it lives is half a diagnosis.
+
+```bash
+python3 scripts/audit.py ~/.claude/skills --explain
+```
+
 **Token counts are measured, not estimated.** `tiktoken` is installed with the
 knowledge base's environment, and `audit.py` re-launches itself under that
 interpreter when the one it started with has no tiktoken — so `python3

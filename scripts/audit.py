@@ -145,6 +145,7 @@ def audit(root: str):
             dict(
                 skill=os.path.basename(skill_dir),
                 path=path,
+                description=desc or "",
                 lines=lines,
                 tokens=tokens,
                 provenance=provenance,
@@ -183,6 +184,73 @@ def audit(root: str):
     return rows
 
 
+def explain(rows) -> int:
+    """Print what to change, on which file, for every skill that has a defect.
+
+    Reporting a flag is half the job. The other half is knowing that a mirrored skill
+    must be edited at its origin (the symlink points into another tree) and what the
+    description currently says, so the fix is a rewrite and not a gamble.
+    """
+    broken = [r for r in rows if r.get("defects")]
+    if not broken:
+        print("nothing to fix.")
+        return 0
+
+    for row in broken:
+        target = row.get("origin") or row["path"]
+        if row.get("link") == "mirrored":
+            note = f"  mirrored — edit the origin, not the link: {target}"
+        elif row.get("link") == "dead":
+            note = "  dead link — points at nothing"
+        else:
+            note = f"  edit: {target}"
+
+        print(f"\n{row['skill']}")
+        print(note)
+
+        for defect in row["defects"]:
+            if defect == "NEVER SAYS WHEN":
+                current = row.get("description") or "(no description)"
+                print("  NEVER SAYS WHEN — only name and description load at startup,")
+                print("    so this line decides whether the skill ever runs.")
+                print(f"    now : {current[:150]}")
+                print("    fix : append a clause that names the trigger, e.g.")
+                print("          \"Use when <the situation>. \" in front of the current text.")
+                print("          Keep it under 1,024 characters.")
+            elif defect == "NO DESCRIPTION":
+                print("  NO DESCRIPTION — nothing tells the model what this is.")
+                print("    fix : add `description: Use when <situation>. <what it does>.`")
+            elif defect == "OVER TOKEN CEILING":
+                print(f"  OVER TOKEN CEILING — {row['tokens']} tokens against "
+                      f"{SPEC['body_tokens_max']}.")
+                print("    fix : move the branch-specific detail into references/<topic>.md")
+                print("          and leave one line in SKILL.md saying where it went.")
+                print("          Do not delete content the skill needs — relocate it.")
+            elif defect == "OVER LINE CEILING":
+                print(f"  OVER LINE CEILING — {row['lines']} lines against "
+                      f"{SPEC['body_lines_max']}.")
+                print("    fix : same as the token ceiling — a references/ file per topic.")
+            elif defect == "NAME TOO LONG":
+                print(f"  NAME TOO LONG — {row['name_len']} characters against "
+                      f"{SPEC['name_max']}.")
+                print("    fix : rename the skill folder and the `name:` field together.")
+            elif defect == "DESC TOO LONG":
+                print(f"  DESC TOO LONG — {row['desc_len']} characters against "
+                      f"{SPEC['desc_max']}.")
+                print("    fix : cut the history and the caveats; keep the trigger.")
+            elif defect.startswith("SHIPS CODE"):
+                print(f"  SHIPS CODE — {row['scripts']} executable file(s) in the folder.")
+                print("    fix : read them (this is the skill-audit rule), or drop them.")
+            else:
+                print(f"  {defect}")
+
+    print("\nAfter editing, run the audit again: the same skill must come back clean.")
+    if any(r.get("link") == "mirrored" for r in broken):
+        print("Editing a mirrored skill writes into the tree it links to. That is the "
+              "point,\nbut check `git status` there before and after.")
+    return 0
+
+
 def main() -> int:
     _reexec_with_tokenizer(sys.argv[1:])
 
@@ -190,6 +258,8 @@ def main() -> int:
     ap.add_argument("root", nargs="?", default=os.path.expanduser("~/.claude/skills"))
     ap.add_argument("--json", action="store_true")
     ap.add_argument("--only-defects", action="store_true", help="hide the clean skills")
+    ap.add_argument("--explain", action="store_true",
+                    help="print what to change, on which file, for each defect")
     args = ap.parse_args()
 
     if not os.path.isdir(args.root):
@@ -199,6 +269,9 @@ def main() -> int:
     if not rows:
         sys.exit(f"No SKILL.md files found under {args.root}")
 
+    if args.explain:
+        return explain(rows)
+
     if args.json:
         print(json.dumps(rows, indent=1))
         return 0
@@ -206,9 +279,10 @@ def main() -> int:
     rows.sort(key=lambda r: -r["tokens"])
     shown = [r for r in rows if r["defects"]] if args.only_defects else rows
 
+    measured = any(r.get("provenance") == "measured" for r in rows)
     provenance = (
         "MEASURED with tiktoken o200k_base"
-        if rows[0]["provenance"] == "measured"
+        if measured
         else "ESTIMATED from character count (tiktoken not installed)"
     )
     total = sum(r["tokens"] for r in rows)

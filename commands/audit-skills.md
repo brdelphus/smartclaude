@@ -1,6 +1,6 @@
 ---
 description: Audit every installed skill and report what is broken, what never fires, and what it costs on every message. Use when asked to audit, check, review, measure or clean up skills, to find out why a skill never runs or triggers, to learn what the skills cost in tokens or context, or when the agent got slower or heavier since things were installed. Also use before installing a skill from a stranger.
-argument-hint: "[skills-directory] [--only-defects] [--json]"
+argument-hint: "[skills-directory] [--only-defects] [--json] [--explain]"
 ---
 
 # Skill Audit
@@ -40,7 +40,41 @@ produced here means exactly what the same number means there.
      every single message either way.
    - Any skill flagged `SHIPS CODE` should be opened and read before it runs again.
 
-5. **Verify before you report.** Open the output and check it against what was
+5. **When they ask how to fix a flag, run the remediation mode:**
+
+   ```bash
+   python3 "${CLAUDE_PLUGIN_ROOT}/scripts/audit.py" ${ARGUMENTS:-~/.claude/skills} --explain
+   ```
+
+   It prints, per broken skill: the file to edit (for a mirrored skill the file at
+   the **origin** of the link, not the link), the description as it stands right
+   now, and what specifically to change for each flag. Use it instead of describing
+   the fixes from memory — the current description text matters, and you will not
+   reproduce it.
+
+6. **Offer to do the fix, one skill at a time.** Do not batch-rewrite twenty
+   descriptions because the operator said "fix them". Say which skill you are about
+   to change and why. A description is the operator's line in their own tree; some
+   of them will want to write it themselves.
+
+   - **`NEVER SAYS WHEN` / `NO DESCRIPTION`** — rewrite the description so the
+     trigger is named. Keep what was already there; add the trigger, do not replace
+     the meaning. Stay under 1,024 characters.
+   - **`OVER TOKEN CEILING` / `OVER LINE CEILING`** — split the body into
+     `references/<topic>.md` and leave a one-line pointer in `SKILL.md` where the
+     detail used to be. Move the content, never delete it: the skill needs it, and
+     the point is that it stops costing tokens on every message.
+   - **`NAME TOO LONG`** — rename the folder and the `name:` field together, or the
+     skill loads under the wrong name.
+   - **`DEAD LINK`** — re-run `/mirror-skills`, or remove the link.
+   - **`SHIPS CODE`** — read the files, or tell the operator what they do. Never
+     silently delete someone's scripts.
+
+7. **Re-run the audit after editing.** The same skill must come back clean; a fix
+   you did not verify is a fix you cannot claim. If a mirrored skill was edited,
+   say that the change landed in the tree the link points at.
+
+8. **Verify before you report.** Open the output and check it against what was
    asked for. If the script errored, if it found zero skills, or if the path was
    wrong, say that plainly. Do not report a successful audit you did not run.
 
@@ -59,7 +93,9 @@ produced here means exactly what the same number means there.
 - `DEAD LINK` — the link points at nothing, so the skill silently stopped existing.
   Re-run `/mirror-skills` or drop the link.
 - `->` beside a skill name — **mirrored**: it is a symlink into another tree, so an
-  edit lands there. Worth knowing before patching it; this is what the guard covers.
+  edit lands there. `--explain` prints the origin path for exactly this reason: edit
+  the link and you edit someone else's tree, which is fine, but it must be on
+  purpose. This is what the guard covers.
 
 ## Gotchas
 

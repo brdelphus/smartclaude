@@ -135,6 +135,25 @@ def main() -> int:
           "MEASURED with tiktoken" in plain.stdout or "ESTIMATED from character count" in plain.stdout,
           plain.stdout[:200])
 
+    print("the remediation mode names the file and the change")
+    # Diagnosing without saying where to edit is half a job, and on a mirrored skill
+    # the obvious file is the wrong one — the link edits the tree at its origin.
+    with tempfile.TemporaryDirectory() as broken:
+        skill = os.path.join(broken, "vague-skill")
+        os.makedirs(skill)
+        with open(os.path.join(skill, "SKILL.md"), "w", encoding="utf-8") as fh:
+            fh.write("---\nname: vague-skill\ndescription: Does a thing.\n---\n\n# Vague\n")
+        out = subprocess.run(
+            [sys.executable, str(REPO / "scripts" / "audit.py"), broken, "--explain"],
+            capture_output=True, text=True,
+            env=dict(os.environ, SMARTCLAUDE_AUDIT_REEXEC="1"),
+        )
+        check("explain runs", out.returncode == 0, out.stderr[-300:])
+        check("names the defect", "NEVER SAYS WHEN" in out.stdout, out.stdout[:200])
+        check("quotes the current description", "Does a thing." in out.stdout, out.stdout[:300])
+        check("says what to change", "fix :" in out.stdout, out.stdout[:200])
+        check("names the file", "edit:" in out.stdout or "origin" in out.stdout, out.stdout[:200])
+
     print()
     if failures:
         print(f"{len(failures)} FAILED: {failures}")
