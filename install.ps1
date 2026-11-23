@@ -59,7 +59,8 @@ $psVersion = $PSVersionTable.PSVersion
 if ($psVersion.Major -lt 5) {
     Write-Die "PowerShell 5.1 or newer is required (found $psVersion)."
 }
-Write-Ok "Windows, PowerShell $psVersion ($($env:PROCESSOR_ARCHITECTURE))"
+$arch = if ($env:PROCESSOR_ARCHITECTURE) { $env:PROCESSOR_ARCHITECTURE } elseif ($env:PROCESSOR_ARCHITEW6432) { $env:PROCESSOR_ARCHITEW6432 } else { 'unknown' }
+Write-Ok "Windows, PowerShell $psVersion ($arch)"
 
 # ---------------------------------------------------------------------------
 # 2. Python
