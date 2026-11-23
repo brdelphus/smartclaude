@@ -14,6 +14,9 @@ Claude Code was permitted. The goal was therefore never "port Hermes": it was
 **make Claude Code operate better than its default**, close enough that the work
 does not have to be abandoned.
 
+Claude Code cannot replace Hermes, not so far. But at least this gives the feeling
+that Claude is working in a smarter way than its default.
+
 That explains the choices that otherwise look arbitrary: why this repo ships no
 skills, why import is explicit rather than automatic, and why every gap against
 the original is admitted in these docs instead of imitated convincingly.

@@ -31,6 +31,9 @@ Not replace Hermes, not reproduce it — close the gap enough that the work does
 have to be given up. Whatever that took was built. Whatever Hermes does that cannot
 be honestly reproduced this way is written down as missing instead of imitated.
 
+Claude Code cannot replace Hermes, not so far. But at least this gives the feeling
+that Claude is working in a smarter way than its default.
+
 That is also why this repo ships empty. A migration that silently installs skills
 you did not choose is not a migration, it is an ambush.
 
