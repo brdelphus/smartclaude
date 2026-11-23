@@ -19,7 +19,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-from lib import guard, memory, paths  # noqa: E402
+from lib import distill, guard, memory, paths  # noqa: E402
 
 
 def cmd_recall(args) -> int:
@@ -86,6 +86,42 @@ def cmd_status(_args) -> int:
     return 0
 
 
+def cmd_distill_status(_args) -> int:
+    report = distill.queue_report()
+    counts = report["counts"] or {}
+    print(f"queue       : {distill.db_path()}")
+    print(f"jobs        : {counts if counts else 'empty'}")
+    print(f"thresholds  : {distill.MIN_CALLS} calls + {distill.MIN_EDITS} edits, "
+          f"or {distill.READONLY_CALLS} calls read-only")
+    ready = distill.headless_ready()
+    print(f"headless    : {'ready' if ready else 'NOT available — jobs will only nudge'}")
+    for job in report["recent"]:
+        print(f"  #{job['id']} {job['session']} {job['state']:8} {job['note']}")
+    return 0
+
+
+def cmd_distill_now(args) -> int:
+    transcript = args.transcript
+    if transcript is None:
+        candidates = sorted(
+            Path(paths.config_dir() / "projects").glob("*/*.jsonl"),
+            key=lambda p: p.stat().st_mtime,
+        )
+        if not candidates:
+            print("No transcript found — pass --transcript.", file=sys.stderr)
+            return 1
+        transcript = str(candidates[-1])
+    print(f"transcript: {transcript}")
+    rc = subprocess.call([sys.executable,
+                          str(Path(__file__).resolve().parent / "worker.py"),
+                          "--transcript", transcript])
+    report = distill.queue_report()
+    print(f"after      : {report['counts']}")
+    for job in report["recent"][:3]:
+        print(f"  #{job['id']} {job['session']} {job['state']:8} {job['note']}")
+    return rc
+
+
 def cmd_mirror(args) -> int:
     cmd = [sys.executable, str(Path(__file__).resolve().parent / "sync_skills.py")]
     if args.prune:
@@ -113,6 +149,13 @@ def main() -> int:
 
     s = sub.add_parser("status")
     s.set_defaults(func=cmd_status)
+
+    ds = sub.add_parser("distill-status")
+    ds.set_defaults(func=cmd_distill_status)
+
+    dn = sub.add_parser("distill-now")
+    dn.add_argument("--transcript", default=None)
+    dn.set_defaults(func=cmd_distill_now)
 
     mi = sub.add_parser("mirror")
     mi.add_argument("--prune", action="store_true")

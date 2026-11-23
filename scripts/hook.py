@@ -23,7 +23,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-from lib import guard, memory, paths  # noqa: E402
+from lib import distill, guard, memory, paths  # noqa: E402
 
 
 def _payload() -> dict:
@@ -186,8 +186,35 @@ def post_tool() -> None:
         )
 
 
+def stop() -> None:
+    """A substantial segment just ended: queue a distillation, or nudge.
+
+    Queueing is silent — the operator's turn ends with no extra output. The
+    nudge path exists only for a machine that cannot authenticate a background
+    `claude -p`; it is a fallback, not the design.
+    """
+    payload = _payload()
+    transcript = str(payload.get("transcript_path") or "")
+    segment = distill.analyze(transcript)
+    if segment is None or not segment.should_fire:
+        return
+
+    if not distill.headless_ready():
+        _emit(
+            f"This was a substantial segment ({segment.reason}) worth keeping as a "
+            "skill, but background distillation is unavailable (no headless "
+            "credential). Run `/distill-now` once auth is fixed, or say what to "
+            "capture and write it now."
+        )
+        return
+
+    if distill.enqueue(segment.session, segment.transcript):
+        distill.spawn(segment.transcript)
+
+
 EVENTS = {
     "session-start": session_start,
+    "stop": stop,
     "user-prompt": user_prompt,
     "pre-tool": pre_tool,
     "post-tool": post_tool,

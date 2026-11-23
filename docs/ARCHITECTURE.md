@@ -63,12 +63,32 @@ fails:
 Disagree on the first and the hook never fires; disagree on the second and the
 edit looks like a brand-new file, so there is nothing to restore.
 
+## `lib/distill.py` + `worker.py` — the loop
+
+Detection is a **line anchor**, not a timestamp: transcripts are append-only, so a
+line offset survives a clock change and cannot re-count old work.
+
+Firing needs volume *and* artifacts — `MIN_CALLS` with `MIN_EDITS`, or a long
+read-only investigation. A library that grows every turn stops being findable.
+
+The worker is detached (`start_new_session=True`) because the `Stop` hook must
+return immediately; a child in the parent's process group dies with the turn. The
+claim is a single `UPDATE ... WHERE state='queued'` so two workers cannot both pay
+for one job.
+
+`headless_ready()` **probes** with a real `claude -p`. `claude auth status` reports
+`loggedIn: true` while `-p` still returns 401, so the status command is not
+evidence. A failed probe degrades to a nudge — it never retries in a loop.
+
+The child is fenced: no Bash, writes only under the skills root, no credential
+paths, and it is told the transcript is untrusted data. It is also told that
+writing through a symlink is **allowed here** — for this design that is the
+supported path, not an escape, and the guard makes it reversible.
+
 ## Choices worth defending
 
-**No auto-distiller in v0.1.** A distiller that runs on a credential the machine
-may not have degrades into a job that silently does nothing. Write-back goes
-through `/remember` with a human deciding what is worth keeping.
-
+**No second database.** The loop keeps its queue in one SQLite file, not a second
+store to keep in sync with git.
 **No second database.** The knowledge base already has git, a chunker and an
 index. A parallel store would drift within a month.
 
