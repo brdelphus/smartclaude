@@ -204,6 +204,30 @@ def main() -> int:
             check("report says MEASURED", "MEASURED with tiktoken" in run.stdout,
                   run.stdout[:300])
 
+    print("an unusable tokenizer is reported as unusable, not as missing")
+    # Importing tiktoken and using it are different failures: get_encoding fetches the
+    # vocabulary on first call, so a host with no network or a read-only cache imports
+    # fine and then cannot measure. Calling that 'not installed' sends the operator
+    # after a package that is already there.
+    with tempfile.TemporaryDirectory() as broken:
+        site = os.path.join(broken, ".venv", "lib", "python3.99", "site-packages")
+        os.makedirs(site)
+        with open(os.path.join(site, "tiktoken.py"), "w", encoding="utf-8") as fh:
+            fh.write(
+                '__version__ = "0.0.0"\n'
+                "def get_encoding(name):\n"
+                '    raise ConnectionError("no network for the vocabulary")\n'
+            )
+        env = dict(os.environ, SMARTCLAUDE_KB_REPO=broken, XDG_DATA_HOME="/nonexistent",
+                   SMARTCLAUDE_AUDIT_REEXEC="1")
+        out = subprocess.run(
+            [sys.executable, str(REPO / "scripts" / "audit.py"), "--doctor"],
+            capture_output=True, text=True, env=env,
+        )
+        check("doctor catches the encoding failure", "FAILS" in out.stdout, out.stdout[:400])
+        check("doctor names the reason", "no network for the vocabulary" in out.stdout,
+              out.stdout[:500])
+
     print()
     if failures:
         print(f"{len(failures)} FAILED: {failures}")

@@ -32,13 +32,25 @@ WHEN = re.compile(
 )
 
 
+TOKENIZER_ERROR: str | None = None
+
+
 def count_tokens(text: str):
-    """Exact when tiktoken is present, estimated otherwise — and say which."""
+    """Exact when tiktoken works, estimated otherwise — and say which.
+
+    Importing tiktoken and *using* it are different failures. `get_encoding` fetches
+    the vocabulary on first use, so a host with no network, no write access to the
+    cache, or a read-only sandbox imports the package fine and then fails at the one
+    step that matters. Swallowing that as 'not installed' sent the operator chasing a
+    package that was already there, so the reason is kept and reported.
+    """
+    global TOKENIZER_ERROR
     try:
         import tiktoken
 
         return len(tiktoken.get_encoding("o200k_base").encode(text)), "measured"
-    except Exception:
+    except Exception as exc:  # noqa: BLE001 - any failure here means 'cannot measure'
+        TOKENIZER_ERROR = f"{type(exc).__name__}: {exc}"[:300]
         return round(len(text) / 4.606), "estimated"
 
 
@@ -366,8 +378,21 @@ def doctor() -> int:
 
         version = getattr(tiktoken, "__version__", "unknown")
         origin = TIKTOKEN_ORIGIN or "interpreter"
-        print(f"  tiktoken    : present ({version}) — this run MEASURES")
+        print(f"  tiktoken    : imported ({version})")
         print(f"  via         : {origin}")
+        # Importing is not measuring. get_encoding fetches the vocabulary on first
+        # use, and that is where a network-less or read-only host fails while still
+        # reporting the package as present.
+        try:
+            encoding = tiktoken.get_encoding("o200k_base")
+            probe_len = len(encoding.encode("a concrete measurement"))
+            print(f"  encoding    : o200k_base works ({probe_len} tokens for 20 chars)")
+        except Exception as exc:  # noqa: BLE001
+            print("  encoding    : FAILS — the report cannot measure")
+            print(f"                {type(exc).__name__}: {str(exc)[:200]}")
+            print("                usually a missing vocabulary download or a"
+                  " read-only cache;")
+            print("                set TIKTOKEN_CACHE_DIR to a writable directory")
     except ImportError:
         print("  tiktoken    : ABSENT and could not be borrowed")
 
@@ -448,11 +473,12 @@ def main() -> int:
     shown = [r for r in rows if r["defects"]] if args.only_defects else rows
 
     measured = any(r.get("provenance") == "measured" for r in rows)
-    provenance = (
-        "MEASURED with tiktoken o200k_base"
-        if measured
-        else "ESTIMATED from character count (tiktoken not installed)"
-    )
+    if measured:
+        provenance = "MEASURED with tiktoken o200k_base"
+    elif TOKENIZER_ERROR:
+        provenance = "ESTIMATED from character count (tiktoken unusable — see below)"
+    else:
+        provenance = "ESTIMATED from character count (tiktoken not installed)"
     hint = ""
     if not measured:
         probes = []
@@ -462,6 +488,11 @@ def main() -> int:
         found_venv = [c for c in probes if os.path.isfile(c)]
         pip_dir = os.path.dirname(found_venv[0]) if found_venv else None
         hint = "\n  Token ceiling numbers below are a guess, not a measurement."
+        if TOKENIZER_ERROR:
+            hint += "\n  tiktoken is installed but unusable here:"
+            hint += f"\n    {TOKENIZER_ERROR}"
+            hint += "\n  usually a missing vocabulary download or a read-only cache;"
+            hint += "\n  set TIKTOKEN_CACHE_DIR to a writable directory."
         hint += f"\n  running on : {ORIGINAL_PYTHON}"
         if ORIGINAL_PYTHON != sys.executable:
             hint += f"\n  switched to: {sys.executable}"
