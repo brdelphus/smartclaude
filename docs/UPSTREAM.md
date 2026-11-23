@@ -7,19 +7,16 @@ READMEs and a reader deserves better.
 
 Not because Claude Code needed another plugin, and not because Hermes is worse at
 this. Hermes is better at this — it is the same workflow in its native form, and
-had it been installable the whole project would be unnecessary.
+had it been installable the whole project would be pointless.
 
-It was not installable. In the environment that needed it, employees are not
-permitted to run it; Claude Code is what is permitted. The options were to rebuild
-the parts that carry their weight inside the only allowed tool, or lose them.
+Security policy forbids running Hermes in the environment this was built for.
+Claude Code was permitted. The goal was therefore never "port Hermes": it was
+**make Claude Code operate better than its default**, close enough that the work
+does not have to be abandoned.
 
-That constraint explains several choices that otherwise look arbitrary: why this
-repo ships no skills (a migration you did not ask for is an ambush), why import is
-explicit rather than automatic, and why the distillation worker probes for a
-credential instead of assuming one.
-
-It also sets the bar for honesty below. Where something could not be carried over,
-it says so instead of imitating the original's shape.
+That explains the choices that otherwise look arbitrary: why this repo ships no
+skills, why import is explicit rather than automatic, and why every gap against
+the original is admitted in these docs instead of imitated convincingly.
 
 ## The reference implementation
 

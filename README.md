@@ -14,33 +14,25 @@ you decided you wanted it.
 
 ## Origin
 
-This exists because of an organisational constraint, not a technical one.
+If I could install Hermes here, I would use Hermes. I would rather use it a
+thousand times over.
 
-The workflow it reproduces — skills loaded only when the prompt needs them, skills
-that improve with use, jobs that run on a schedule, memory that lives outside the
-session and an extended memory you can search — was already working, and working
-well, under [Hermes Agent](https://hermes-agent.nousresearch.com/docs): a runner
-that mirrors skills from a shared tree, distils a working session into a new skill,
-and queries an external markdown knowledge base by meaning.
+[Hermes Agent](https://hermes-agent.nousresearch.com/docs) already does everything
+below, natively and better: skills read only when the prompt needs them, skills
+that improve with use, jobs on a schedule, memory that lives outside the session,
+an extended memory you can search. There is nothing novel here. If you can install
+it where you work, install it and close this tab.
 
-**Hermes is the better solution to this problem.** It was not rebuilt here because
-Claude Code is better at anything. It was rebuilt because in the environment that
-needed it, employees are not permitted to install Hermes — and Claude Code is what
-is permitted.
+I could not. Not for lack of features and not by choice — **security policy forbids
+running it in this environment**, and Claude Code is what was allowed.
 
-So the choice was not "write a plugin" versus "do nothing". It was: rebuild the
-parts that carry their weight inside the only tool allowed, or lose them. Every
-feature here answers a need that came from that rebuild, and the ones that turned
-out not to transfer are documented instead of faked — see
-[the distillation section](#feature-distillation), where the child is fenced and
-the credential is probed rather than assumed.
+So the goal became narrower: **make Claude Code operate better than its default**.
+Not replace Hermes, not reproduce it — close the gap enough that the work does not
+have to be given up. Whatever that took was built. Whatever Hermes does that cannot
+be honestly reproduced this way is written down as missing instead of imitated.
 
-If you can install Hermes where you work, use Hermes. This is the fallback for
-people who cannot, and it is written to be honest about being one.
-
-The constraint is also why this repo ships empty. A migration that silently
-installs skills you did not choose is not a migration, it is an ambush.
-
+That is also why this repo ships empty. A migration that silently installs skills
+you did not choose is not a migration, it is an ambush.
 
 ## Install
 
