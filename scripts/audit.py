@@ -42,6 +42,9 @@ def count_tokens(text: str):
         return round(len(text) / 4.606), "estimated"
 
 
+TOKENIZER_PROBES: list[str] = []
+
+
 def _reexec_with_tokenizer(argv: list[str]) -> None:
     """Switch to an interpreter that has tiktoken, at most once.
 
@@ -70,6 +73,7 @@ def _reexec_with_tokenizer(argv: list[str]) -> None:
     for root in roots:
         for rel in (("bin", "python"), ("Scripts", "python.exe")):
             candidate = os.path.join(root, ".venv", *rel)
+            TOKENIZER_PROBES.append(candidate)
             if not os.path.isfile(candidate):
                 continue
             try:
@@ -285,6 +289,21 @@ def main() -> int:
         if measured
         else "ESTIMATED from character count (tiktoken not installed)"
     )
+    hint = ""
+    if not measured:
+        found_venv = [c for c in TOKENIZER_PROBES if os.path.isfile(c)]
+        pip_dir = os.path.dirname(found_venv[0]) if found_venv else None
+        hint = "\n  Token ceiling numbers below are a guess, not a measurement."
+        if pip_dir:
+            hint += f"\n  install it where the audit looks: "
+            hint += f"\n    {os.path.join(pip_dir, 'pip')} install tiktoken"
+        else:
+            hint += "\n  no knowledge-base environment found; looked for:"
+            for probe in TOKENIZER_PROBES:
+                hint += f"\n    {probe}"
+            hint += "\n  run install.sh, or pip install tiktoken in the python you run this with."
+            hint += "\n  Re-running under that interpreter needs a venv at "
+            hint += "\n  ~/.local/share/smartclaude/kb/.venv (or SMARTCLAUDE_KB_REPO)."
     total = sum(r["tokens"] for r in rows)
     startup = sum(r["name_len"] + r["desc_len"] for r in rows)
     mirrored = [r for r in rows if r["link"] == "mirrored"]
@@ -292,6 +311,8 @@ def main() -> int:
 
     print(f"\n{len(rows)} skills under {args.root}")
     print(f"Token counts: {provenance}")
+    if hint:
+        print(hint)
     if mirrored or dead:
         print(f"Links: {len(mirrored)} mirrored, {len(dead)} dead\n")
     else:
