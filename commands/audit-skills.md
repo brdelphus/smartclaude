@@ -52,10 +52,11 @@ produced here means exactly what the same number means there.
    the fixes from memory — the current description text matters, and you will not
    reproduce it.
 
-6. **Offer to do the fix, one skill at a time.** Do not batch-rewrite twenty
-   descriptions because the operator said "fix them". Say which skill you are about
-   to change and why. A description is the operator's line in their own tree; some
-   of them will want to write it themselves.
+6. **Offer to do the fix, one skill at a time — or hand off to `/fix-skills`.**
+   That command carries the same rules and does the editing; this one only diagnoses.
+   Do not batch-rewrite twenty descriptions because the operator said "fix them". Say
+   which skill you are about to change and why. A description is the operator's line
+   in their own tree; some of them will want to write it themselves.
 
    - **`NEVER SAYS WHEN` / `NO DESCRIPTION`** — rewrite the description so the
      trigger is named. Keep what was already there; add the trigger, do not replace

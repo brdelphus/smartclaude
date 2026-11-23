@@ -97,6 +97,18 @@ def main() -> int:
             # parse, the hint must be a string for the runtime to render it.
             check(f"{rel} argument-hint is a string", isinstance(hint, str), type(hint).__name__)
 
+    print("commands only call scripts that exist")
+    # A command is documentation that runs. A path typo here is invisible until a user
+    # types the slash command and gets 'No such file' — the plugin validates fine.
+    import re as _re
+
+    for cmd in sorted((REPO / "commands").glob("*.md")):
+        text = cmd.read_text(encoding="utf-8")
+        referenced = set(_re.findall(r"scripts/([A-Za-z0-9_]+\.py)", text))
+        for name in sorted(referenced):
+            check(f"{cmd.name} -> scripts/{name} exists",
+                  (REPO / "scripts" / name).is_file(), name)
+
     print("manifest and icon")
     manifest_path = REPO / ".claude-plugin" / "plugin.json"
     manifest = json.loads(manifest_path.read_text(encoding="utf-8"))

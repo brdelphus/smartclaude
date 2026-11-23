@@ -175,6 +175,7 @@ python3 scripts/guide.py remove    # take it out
 | Command | What it does |
 |---|---|
 | `/audit-skills` | measure every skill: what is broken, what never fires, what it costs on every message |
+| `/fix-skills` | correct what the audit flagged — rewrite a description that never says when, split an oversized body into `references/`, drop a dead link |
 | `/import-skills` | bring skills over from Cursor, Copilot, Claude, Hermes or `.agents/skills` |
 | `/mirror-skills` | link an external skills tree into `~/.claude/skills`, idempotently |
 | `/recall <terms>` | search the knowledge base and answer from the hits |
