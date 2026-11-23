@@ -316,7 +316,8 @@ worse than one that does nothing.
 |---|---|---|
 | `CLAUDE_CONFIG_DIR` | `~/.claude` | where Claude Code keeps per-user state |
 | `SMARTCLAUDE_STATE_DIR` | `<config>/smartclaude` | queue, snapshots, bookkeeping |
-| `SMARTCLAUDE_KB_REPO` | discovered | the markdown knowledge base |
+| `SMARTCLAUDE_KB_REPO` | `~/.local/share/smartclaude/kb` | where the knowledge base lives; created on install when absent |
+| `SMARTCLAUDE_KB_INDEX` | `~/.cache/smartclaude/kb-index` | the Chroma index, deliberately outside the notes tree |
 | `SMARTCLAUDE_SKILLS_SRC` | none | source tree for `/mirror-skills` — no default, on purpose |
 | `SMARTCLAUDE_RECALL_ON_PROMPT` | off | recall on every prompt (costs latency) |
 | `SMARTCLAUDE_MIN_CALLS` / `MIN_EDITS` / `READONLY_CALLS` | 40 / 3 / 80 | distillation thresholds |
