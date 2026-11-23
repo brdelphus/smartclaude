@@ -36,6 +36,11 @@ cd smartclaude
 
 **Windows** — PowerShell 5.1 or 7+.
 
+> **The Windows installer has never been run on Windows.** Its syntax is validated
+> with the real PowerShell parser and its full flow was executed on Linux with the
+> platform guard neutralised, but no Windows machine has run it end to end. Treat
+> it as untested until you have. See [What is tested](#what-is-tested-and-what-is-not).
+
 ```powershell
 git clone https://github.com/Rgraeff/smartclaude.git
 cd smartclaude
@@ -229,6 +234,36 @@ python3 tests/test_no_foreign_agent.py  # ships empty; no implicit reads
 
 Both build their own throwaway trees, so they run on a machine where none of those
 agents is installed — which is exactly the machine this has to work on.
+
+## What is tested, and what is not
+
+Stated plainly, because an installer that quietly lies about its coverage is worse
+than one that has none.
+
+| | Status |
+|---|---|
+| **Linux `install.sh`** | **Tested end to end** on Void Linux x86_64 — fresh install, second run (idempotent), and `--uninstall`, each verified afterwards with `claude plugin list`. |
+| **macOS `install.sh`** | **Not tested.** The Darwin branch is written — it detects the platform and offers `brew install python@3.12` when Python is missing — but no Mac has run it. |
+| **Windows `install.ps1`** | **Not tested.** See below. |
+| **PowerShell 5.1** | **Not tested.** The script accepts 5.1 (`PSEdition -eq 'Desktop'`), but only PowerShell 7.7 Core on Linux was exercised. |
+| **The plugin itself** | Tested on Linux with Claude Code 2.1.187: manifest validation, both test suites, install, idempotency, uninstall. |
+
+What *was* done for `install.ps1`, and what that is worth:
+
+- syntax parsed by the real PowerShell parser (`[Parser]::ParseFile`) — a genuine
+  parse, not brace counting
+- the platform guard executed on Linux and correctly refused with exit code 1
+- `Find-Python` executed and resolved a working interpreter
+- the full flow — prerequisites, validate, tests, register — run on Linux with the
+  platform guard neutralised on a copy, ending in a plugin that `claude plugin list`
+  reports as `enabled`
+- every `claude` subcommand the script invokes confirmed to exist
+
+That is evidence the script is *sound*, not evidence it *runs on Windows*. Path
+handling, execution policy, `$HOME` versus `$env:USERPROFILE`, and the absence of a
+`python3` symlink on Windows are all plausible places for it to break. Run it and
+tell us, or open an issue with the output.
+
 
 ## Scope
 

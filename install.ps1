@@ -5,6 +5,12 @@
 .DESCRIPTION
     Linux and macOS use install.sh; this script refuses to pretend otherwise.
 
+    STATUS: NOT YET RUN ON WINDOWS.
+    Syntax is validated by the real PowerShell parser and the full flow has been
+    executed on Linux with the platform guard neutralised, but no Windows machine
+    has run this end to end. PowerShell 5.1 is accepted but only 7.7 Core was
+    exercised. Treat it as untested until you have run it, and report what breaks.
+
     Design rules, same as the POSIX installer:
       - check before act: a missing prerequisite stops the install instead of
         producing a half-working plugin that fails silently later
