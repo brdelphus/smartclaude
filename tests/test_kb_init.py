@@ -17,6 +17,7 @@ Run: python3 tests/test_kb_init.py
 from __future__ import annotations
 
 import json
+import os
 import subprocess
 import sys
 import tempfile
@@ -70,10 +71,18 @@ gets overwritten on the next upgrade.
 
 def main() -> int:
     tmp = Path(tempfile.mkdtemp(prefix="smartclaude-kb-"))
+    # Installing chromadb takes ~30s and hits PyPI. A suite that quietly does that on
+    # every run is why `python3 tests/test_kb_init.py` felt hung. Structure is cheap
+    # and always checked; the dependency install is opt-in.
+    full = os.environ.get("SMARTCLAUDE_TEST_KB_FULL") == "1"
+    deps = full
+    if not full:
+        skipped.append("dependency install and functional round-trip: set "
+                       "SMARTCLAUDE_TEST_KB_FULL=1 to run them (takes ~30s, needs network)")
 
     print("creates the layout")
     root = tmp / "kb"
-    result = kb_init.install(root)
+    result = kb_init.install(root, install_deps=deps)
     check("action reported", result.action in ("created", "created-no-index"), result.action)
     check("notes folder exists", (root / "categorias" / "geral").is_dir())
     check("indexer copied", (root / "vk.py").is_file())
@@ -84,7 +93,7 @@ def main() -> int:
     print("is idempotent and never eats a note")
     mine = note(root, "infra", "mine", SAMPLE_BACKUP)
     before = mine.read_bytes()
-    again = kb_init.install(root)
+    again = kb_init.install(root, install_deps=deps)
     check("second run reports the base already existed",
           again.action in ("exists", "created-no-index"), again.action)
     check("operator note untouched", mine.read_bytes() == before)
@@ -95,7 +104,9 @@ def main() -> int:
 
     print("chromadb is available for the functional checks")
     python = kb_init._venv_python(root / ".venv")
-    if not kb_init._has_chromadb(python):
+    if not deps:
+        print("  SKIP dependencies were not installed in this run")
+    elif not kb_init._has_chromadb(python):
         skipped.append("functional round-trip: chromadb was not installed in this run")
         print("  SKIP chromadb not available (offline, or the install reported a warning)")
     else:

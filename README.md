@@ -380,6 +380,18 @@ python3 tests/test_frontmatter.py       # every command file parses and the icon
 All of them build their own throwaway trees, so they run on a machine where none of
 those agents is installed — which is exactly the machine this has to work on.
 
+The whole suite runs in under a second, by design. `test_kb_init.py` is the only one
+that could reach the network, because creating the knowledge base installs chromadb
+into a venv — around 30 seconds, spent entirely inside pip. That is the installer's
+job, not a test's: the suite checks the layout, the indexer copy and idempotency
+every time, and runs the install plus the index/query round-trip only when you ask:
+
+```bash
+SMARTCLAUDE_TEST_KB_FULL=1 python3 tests/test_kb_init.py   # ~30s, needs network
+```
+
+Without the variable it reports what it skipped instead of pretending it covered it.
+
 `test_frontmatter.py` exists because three command files once shipped with YAML that
 did not parse (`argument-hint: [a] [b]`, unquoted, is a flow sequence) and one with a
 stray tuple welded around its description. Claude Code does not fail on either: it

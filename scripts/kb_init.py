@@ -153,7 +153,14 @@ def _reindex(root: Path) -> tuple[bool, str]:
     return True, (proc.stdout or "").strip().splitlines()[-1][:120] if proc.stdout.strip() else "indexed"
 
 
-def install(root: Path | None = None) -> Result:
+def install(root: Path | None = None, install_deps: bool = True) -> Result:
+    """Create the knowledge base.
+
+    ``install_deps=False`` builds the layout and the indexer but skips the venv and
+    the chromadb install. That path takes milliseconds instead of half a minute and
+    needs no network, which is what the test suite uses for its structural checks —
+    a test suite should not silently hit PyPI. The installer always leaves it True.
+    """
     root = Path(root).expanduser() if root else default_root()
     steps: list[str] = []
 
@@ -168,6 +175,11 @@ def install(root: Path | None = None) -> Result:
         steps.append("indexer written")
     else:
         return Result("error", root, steps, f"missing template: {VK_TEMPLATE}")
+
+    if not install_deps:
+        steps.append("dependencies skipped")
+        return Result("exists" if not fresh else "created-no-index", root, steps,
+                      "dependencies were not installed")
 
     ok, message = _build_venv(root)
     if not ok:
