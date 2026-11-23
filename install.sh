@@ -145,7 +145,10 @@ if [ "${UNINSTALL:-0}" = "1" ]; then
     && ok "plugin uninstalled" || warn "plugin was not installed"
   "$CLAUDE_BIN" plugin marketplace remove "$MARKET_NAME" 2>/dev/null \
     && ok "marketplace removed" || warn "marketplace was not registered"
-  warn "state (queue, snapshots) kept at \${SMARTCLAUDE_STATE_DIR:-~/.claude/smartclaude} — delete it by hand to remove"
+  # Print the path that is actually in use. The literal ${SMARTCLAUDE_STATE_DIR:-...}
+  # used to be emitted unexpanded, which tells the operator nothing they can act on.
+  STATE_DIR="$("$PY_BIN" -c 'import sys; sys.path.insert(0, sys.argv[1]); from lib import paths; print(paths.state_dir())' "$REPO_ROOT/scripts" 2>/dev/null)"
+  warn "state (queue, snapshots) kept at ${STATE_DIR:-${SMARTCLAUDE_STATE_DIR:-$HOME/.claude/smartclaude}} — delete it by hand to remove"
   say ""
   say "Done."
   INSTR_OUT="$("$PY_BIN" "$REPO_ROOT/scripts/instructions.py" remove 2>&1)" || true
