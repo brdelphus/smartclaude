@@ -14,16 +14,19 @@ you decided you wanted it.
 
 ## Origin
 
-This exists because of a constraint.
+This exists because of an organisational constraint, not a technical one.
 
 The workflow it reproduces — skills loaded only when the prompt needs them, skills
 that improve with use, jobs that run on a schedule, memory that lives outside the
-session and an extended memory you can search — was already working. It ran under
-[Hermes Agent](https://hermes-agent.nousresearch.com/docs): a runner that mirrors
-skills from a shared tree, distils a working session into a new skill, and queries
-an external markdown knowledge base by meaning.
+session and an extended memory you can search — was already working, and working
+well, under [Hermes Agent](https://hermes-agent.nousresearch.com/docs): a runner
+that mirrors skills from a shared tree, distils a working session into a new skill,
+and queries an external markdown knowledge base by meaning.
 
-One environment only permits Claude Code. Nothing else can be installed there.
+**Hermes is the better solution to this problem.** It was not rebuilt here because
+Claude Code is better at anything. It was rebuilt because in the environment that
+needed it, employees are not permitted to install Hermes — and Claude Code is what
+is permitted.
 
 So the choice was not "write a plugin" versus "do nothing". It was: rebuild the
 parts that carry their weight inside the only tool allowed, or lose them. Every
@@ -31,6 +34,9 @@ feature here answers a need that came from that rebuild, and the ones that turne
 out not to transfer are documented instead of faked — see
 [the distillation section](#feature-distillation), where the child is fenced and
 the credential is probed rather than assumed.
+
+If you can install Hermes where you work, use Hermes. This is the fallback for
+people who cannot, and it is written to be honest about being one.
 
 The constraint is also why this repo ships empty. A migration that silently
 installs skills you did not choose is not a migration, it is an ambush.

@@ -5,12 +5,13 @@ READMEs and a reader deserves better.
 
 ## Why this exists at all
 
-Not because Claude Code needed another plugin. Because one environment permits
-Claude Code and nothing else, and the workflow being given up there — skills read
-on demand, skills improved by use, scheduled jobs, memory outside the session, an
-extended memory you can search — was already in daily use under the Hermes Agent
-runner. The options were to rebuild the parts that carry their weight inside the
-only permitted tool, or lose them.
+Not because Claude Code needed another plugin, and not because Hermes is worse at
+this. Hermes is better at this — it is the same workflow in its native form, and
+had it been installable the whole project would be unnecessary.
+
+It was not installable. In the environment that needed it, employees are not
+permitted to run it; Claude Code is what is permitted. The options were to rebuild
+the parts that carry their weight inside the only allowed tool, or lose them.
 
 That constraint explains several choices that otherwise look arbitrary: why this
 repo ships no skills (a migration you did not ask for is an ambush), why import is
