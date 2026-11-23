@@ -56,7 +56,7 @@ def session_start() -> None:
         lines.append(
             "**Extended memory is available.** Use `/recall <terms>` or run "
             "`hook.py user-prompt`'s path when you need prior context (mailu, k3s, "
-            "void, hermes...). It is a semantic index over the operator's notes."
+            "An external markdown note repo with its own index is configured."
         )
 
     try:

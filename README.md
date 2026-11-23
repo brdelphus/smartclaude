@@ -7,11 +7,26 @@ What it does not have is a **knowledge base** that survives across machines and
 repos, and a safe way to let an agent edit a skill that is shared with another
 tool. smartclaude adds those two, and nothing else.
 
+## Scope
+
+Runs on **Claude Code and nothing else**. No other agent has to be installed, and
+none is read by default. The skills root is resolved from `CLAUDE_CONFIG_DIR` or
+`~/.claude`, full stop.
+
+Mirroring is opt-in and always names its source: `--src <dir>` or
+`SMARTCLAUDE_SKILLS_SRC`. With neither, the command refuses rather than guessing,
+because a guessed default works on one machine and silently does nothing on the
+next. `tests/test_no_foreign_agent.py` fails the build if executable code ever
+names another agent, or if a mirror runs without an explicit source.
+
+The external knowledge base is likewise optional: unset means the memory commands
+degrade to a no-op, never to an error.
+
 ## The two problems it solves
 
 **1. Mirrored skills get written blindly.**
 
-If your skills live in another tree (a Hermes profile, a shared dotfiles repo, a
+If your skills live in another tree (a shared dotfiles repo, another agent's
 plugin source) and you symlink them into `~/.claude/skills/`, then a write through
 the link edits *the origin*. Most skill-guard implementations walk the tree with
 `followlinks=False`, so the symlinked skill never enters their snapshot: the edit
@@ -40,7 +55,7 @@ claude plugin install smartclaude@smartclaude
 Then point it at your trees:
 
 ```bash
-export SMARTCLAUDE_SKILLS_SRC=~/.hermes/profiles/insight/skills   # what to mirror
+export SMARTCLAUDE_SKILLS_SRC=~/./opt/shared/skills              # what to mirror (any tree)
 export SMARTCLAUDE_KB_REPO=~/projects/valeria-knowledge           # extended memory
 ```
 
@@ -107,7 +122,7 @@ this repo in one file.
 
 The learn-from-use loop this project assumes is the design of
 [UniM0cha/self-improving-skills](https://github.com/UniM0cha/self-improving-skills)
-(MIT, © 2026 이정윤), which ports the Nous Research Hermes Agent idea into Claude
+(MIT, © 2026 이정윤), which ports the Nous Research the Hermes Agent approach into Claude
 Code. smartclaude is an independent implementation with a different stance on
 symlinks — see [docs/UPSTREAM.md](docs/UPSTREAM.md) for what was taken as design
 and what was deliberately not copied.

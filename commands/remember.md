@@ -33,7 +33,7 @@ O motivo. Sem isso a nota vira receita sem raciocínio e envelhece mal.
 NOTE
 ```
 
-Use the category that matches the operator's tree (`infra`, `hermes`, `k3s`,
+Use the category that matches the operator's tree (`infra`, `infra`, `k3s`,
 `void`...). Check with `ls` inside the knowledge base before inventing one.
 
 ## Then

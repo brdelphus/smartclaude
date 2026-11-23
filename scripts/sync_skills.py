@@ -37,14 +37,22 @@ def find_skills(src: Path):
 
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__)
-    ap.add_argument("--src", default=os.environ.get("SMARTCLAUDE_SKILLS_SRC") or str(paths.skills_root()))
+    ap.add_argument("--src", default=os.environ.get("SMARTCLAUDE_SKILLS_SRC"))
     ap.add_argument("--dst", default=str(paths.skills_root()))
     ap.add_argument("--prune", action="store_true", help="remove links whose target is gone")
     ap.add_argument("--dry-run", action="store_true")
     args = ap.parse_args()
 
+    if not args.src:
+        sys.exit(
+            "No source tree given. Mirroring is opt-in: pass --src <dir> or set "
+            "SMARTCLAUDE_SKILLS_SRC. This plugin never assumes where skills come "
+            "from, because it does not require any other agent to be installed."
+        )
     src = Path(args.src).expanduser().absolute()
     dst = Path(args.dst).expanduser().absolute()
+    if src == dst:
+        sys.exit(f"Source and destination are the same tree: {src}")
     if not src.is_dir():
         print(f"source not found: {src}", file=sys.stderr)
         return 1
