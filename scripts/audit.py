@@ -42,6 +42,47 @@ def count_tokens(text: str):
         return round(len(text) / 4.606), "estimated"
 
 
+def _kb_roots() -> list[str]:
+    """Where a tiktoken-carrying interpreter may live, most likely first.
+
+    Guessing `~/.local/share` by hand is how the audit ended up blind to a base that
+    was installed and working: the rest of the plugin resolves the knowledge base
+    through lib/paths.py, which honours the environment overrides and knows where
+    per-user data goes on each platform. Ask that, then fall back to the literal
+    paths, so the answer cannot drift from the one the installer used.
+    """
+    roots: list[str] = []
+    try:
+        sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+        from lib.paths import knowledge_repo  # noqa: PLC0415
+
+        found = knowledge_repo()
+        if found:
+            roots.append(str(found))
+    except Exception:  # noqa: BLE001 - a missing lib must not break the audit
+        pass
+
+    for name in ("SMARTCLAUDE_KB_REPO", "VALERIA_KNOWLEDGE_REPO"):
+        configured = os.environ.get(name)
+        if configured:
+            roots.append(os.path.expanduser(configured))
+
+    share = os.environ.get("XDG_DATA_HOME") or str(os.path.expanduser("~/.local/share"))
+    roots.append(os.path.join(share, "smartclaude", "kb"))
+    # Windows keeps per-user data somewhere else entirely.
+    localappdata = os.environ.get("LOCALAPPDATA")
+    if localappdata:
+        roots.append(os.path.join(localappdata, "smartclaude", "kb"))
+
+    seen, unique = set(), []
+    for root in roots:
+        key = os.path.abspath(root)
+        if key not in seen:
+            seen.add(key)
+            unique.append(root)
+    return unique
+
+
 TOKENIZER_PROBES: list[str] = []
 
 
@@ -63,12 +104,7 @@ def _reexec_with_tokenizer(argv: list[str]) -> None:
     except ImportError:
         pass
 
-    roots = []
-    configured = os.environ.get("SMARTCLAUDE_KB_REPO")
-    if configured:
-        roots.append(configured)
-    share = os.environ.get("XDG_DATA_HOME") or str(os.path.expanduser("~/.local/share"))
-    roots.append(os.path.join(share, "smartclaude", "kb"))
+    roots = _kb_roots()
 
     for root in roots:
         for rel in (("bin", "python"), ("Scripts", "python.exe")):
