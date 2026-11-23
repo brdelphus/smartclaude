@@ -135,6 +135,44 @@ def slugify(title: str) -> str:
     return slug[:60] or "nota"
 
 
+@dataclass
+class WriteResult:
+    path: Path
+    chunks: Optional[int] = None
+    sections: int = 0
+    warning: Optional[str] = None
+
+    def describe(self, kb: Path) -> str:
+        rel = self.path.relative_to(kb)
+        line = f"Written: {self.path}"
+        if self.chunks is not None:
+            line += f"\nIndexed: {self.chunks} chunk(s) from {self.sections} section(s) of {rel}"
+        if self.warning:
+            line += f"\nWarning: {self.warning}"
+        return line
+
+
+def count_sections(body: str) -> int:
+    """Markdown headings in the body — what the base's chunker splits on."""
+    return len(re.findall(r"^#{1,6}\s+\S", body, re.M))
+
+
+def chunks_of(kb: Path, rel: str) -> Optional[int]:
+    """How many chunks the index actually holds for this file.
+
+    Read back from the base's own `stats`, which prints one line per chunk. A
+    write is not done until the index shows it — the same rule as the audit:
+    verify before reporting.
+    """
+    try:
+        proc = _run(kb, ["stats"])
+    except (OSError, subprocess.SubprocessError):
+        return None
+    if proc.returncode != 0:
+        return None
+    return sum(1 for line in (proc.stdout or "").splitlines() if rel in line)
+
+
 def remember(
     title: str,
     body: str,
@@ -145,10 +183,11 @@ def remember(
 ) -> Optional[Path]:
     """Append a note to the knowledge base as a markdown file.
 
-    Written in the base's own shape — ``categorias/<cat>/<slug>.md`` with an H1
-    and H2 sections, because its chunker splits on headings and a heading-less
-    file indexes as one diluted blob. Returns the path, or None when no base is
-    configured or the file already exists and `overwrite` is false.
+    Written in the base's own shape — ``categorias/<cat>/<slug>.md``. An H1 is
+    always supplied; H2 sections are the caller's job, and when the body has none
+    the result says so, because a heading-less file indexes as one diluted blob
+    and loses the section-level chunking. Returns a `WriteResult`, or None when no
+    base is configured or the file exists and `overwrite` is false.
     """
     kb = paths.knowledge_repo()
     if kb is None or not body.strip():
@@ -171,7 +210,28 @@ def remember(
             _run(kb, ["index"])
         except (OSError, subprocess.SubprocessError):
             pass
-    return target
+
+    sections = count_sections(text)
+    rel = str(target.relative_to(kb))
+    chunks = chunks_of(kb, rel) if reindex else None
+
+    # The chunker drops any section shorter than 80 characters, so heading count
+    # predicts nothing — only the measured chunk count does. Report the measurement.
+    warning = None
+    if chunks is not None and chunks <= 1 and sections > 1:
+        warning = (
+            f"has {sections} headings but indexed as a single chunk: the base drops "
+            "sections under 80 characters. Section-level chunking is what lifted "
+            "recall@5 from 94.4% to 100%, so a note worth splitting needs sections "
+            "with real body text under each heading, not one-liners."
+        )
+    elif chunks is not None and chunks <= 1 and sections == 0:
+        warning = (
+            "has no headings at all, so the whole note is one chunk and its "
+            "embedding is diluted by everything in it. Group the content under `## ` "
+            "headings with 80+ characters each."
+        )
+    return WriteResult(path=target, chunks=chunks, sections=sections, warning=warning)
 
 
 def stats() -> str:

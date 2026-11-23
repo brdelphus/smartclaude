@@ -42,15 +42,16 @@ def cmd_remember(args) -> int:
     if not body.strip():
         print("Empty body — pipe the note on stdin.", file=sys.stderr)
         return 2
-    path = memory.remember(" ".join(args.title), body, category=args.cat, overwrite=args.force)
-    if path is None:
+    result = memory.remember(" ".join(args.title), body, category=args.cat, overwrite=args.force)
+    if result is None:
         print(
             "Not written: no knowledge base configured, or that note already "
             "exists. Pass --force to overwrite.",
             file=sys.stderr,
         )
         return 1
-    print(f"Written: {path}")
+    kb = paths.knowledge_repo()
+    print(result.describe(kb))
     return 0
 
 
