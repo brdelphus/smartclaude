@@ -33,12 +33,39 @@ def check(name: str, condition: bool, detail: str = "") -> None:
         failures.append(name)
 
 
+def tracked_skill_files() -> list[str]:
+    """SKILL.md files that git has committed here.
+
+    The rule is that the repository ships no skill — not that a working copy can
+    never hold one. Anyone exercising the mirror or the importer will end up with an
+    untracked SKILL.md, and failing them for that says nothing about what ships.
+
+    If git is unavailable the check falls back to the filesystem, which is stricter
+    but only ever wrong in the safe direction.
+    """
+    try:
+        out = subprocess.run(
+            ["git", "-C", str(REPO), "ls-files", "*/SKILL.md", "SKILL.md"],
+            capture_output=True, text=True, timeout=60,
+        )
+        if out.returncode == 0:
+            return [line for line in out.stdout.splitlines() if line.strip()]
+    except (OSError, subprocess.SubprocessError):
+        pass
+    return [str(p.relative_to(REPO)) for p in REPO.rglob("SKILL.md") if ".git" not in p.parts]
+
+
 def main() -> int:
     tmp = Path(tempfile.mkdtemp(prefix="smartclaude-guide-"))
 
     print("the repository ships no SKILL.md")
-    found = [p for p in REPO.rglob("SKILL.md") if ".git" not in p.parts]
+    found = tracked_skill_files()
     check("zero SKILL.md committed", not found, str(found[:3]))
+    untracked = [p for p in REPO.rglob("SKILL.md")
+                 if ".git" not in p.parts and str(p.relative_to(REPO)) not in found]
+    if untracked:
+        print(f"  note: {len(untracked)} untracked SKILL.md in the working copy "
+              f"({', '.join(str(p.relative_to(REPO)) for p in untracked[:3])}) — not a failure")
     check("template exists", guide.TEMPLATE.is_file())
 
     print("installs into an empty tree")
