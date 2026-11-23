@@ -235,7 +235,13 @@ Write-Step 'Guidance skill'
 $guideOut = & $pyExe @pyArgs (Join-Path $RepoRoot 'scripts/guide.py') install 2>&1
 if ($LASTEXITCODE -ne 0) { Write-Warn ($guideOut -join ' ') } else { Write-Ok ($guideOut -join ' ') }
 
-Write-Step 'Installed'
+Write-Step 'Knowledge base'
+# Local, unversioned: markdown notes plus a Chroma index. Never fatal.
+$kbOut = & $pyExe @pyArgs (Join-Path $RepoRoot 'scripts/kb_init.py') install 2>&1
+$kbText = ($kbOut -join "`n")
+if ($kbText -match 'warning:') { Write-Warn $kbText } else { Write-Ok $kbText }
+
+Write-Step 'Installed' 
 
 $py = "$pyExe $($pyArgs -join ' ')".Trim()
 

@@ -77,8 +77,16 @@ def knowledge_repo() -> Optional[Path]:
         configured = os.environ.get(name)
         if configured:
             return Path(configured).expanduser().absolute()
-    guess = user_home() / "projects" / "valeria-knowledge"
-    return guess if (guess / "vk.py").is_file() else None
+
+    # The base this plugin creates on install. Local, unversioned, made here.
+    share = os.environ.get("XDG_DATA_HOME") or (user_home() / ".local" / "share")
+    local = Path(share) / "smartclaude" / "kb"
+    if (local / "vk.py").is_file():
+        return local
+
+    # A base that predates this one, still honoured when it is the only option.
+    legacy = user_home() / "projects" / "valeria-knowledge"
+    return legacy if (legacy / "vk.py").is_file() else None
 
 
 # ---------------------------------------------------------------------------

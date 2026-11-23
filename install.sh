@@ -230,6 +230,17 @@ GUIDE_OUT="$("$PY_BIN" "$REPO_ROOT/scripts/guide.py" install 2>&1)" \
   || warn "guidance skill not installed: $GUIDE_OUT"
 ok "$GUIDE_OUT"
 
+step "Knowledge base"
+# Local, unversioned: markdown notes plus a Chroma index. Never fatal — if chromadb
+# cannot be installed the notes folder still exists and the warning says how to
+# finish by hand.
+KB_OUT="$("$PY_BIN" "$REPO_ROOT/scripts/kb_init.py" install 2>&1)" || true
+if printf '%s' "$KB_OUT" | grep -q 'warning:'; then
+  warn "$KB_OUT"
+else
+  ok "$KB_OUT"
+fi
+
 step "Installed"
 
 cat <<EOF

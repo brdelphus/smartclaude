@@ -199,17 +199,41 @@ without breaking the link.
 
 ## Feature: extended memory
 
-Auto-memory is per repository and machine-local. smartclaude talks to an external
-markdown knowledge base that has its own indexer, reads from it on demand, and
-appends to it in the base's own format. It never creates a second database that
-would drift from the first — git holds the text, the vector store is a cache.
+Auto-memory in Claude Code is per repository and capped at the first 200 lines of a
+`MEMORY.md`. What does not fit goes here: a **local** markdown knowledge base with a
+semantic index, so a decision made three months ago is one search away instead of
+lost in a transcript.
 
-The base is optional. Unset means the memory commands degrade to a no-op, never to
-an error. Discovery order: `SMARTCLAUDE_KB_REPO`, then a conventional location.
+**It is created on install.** No git, no remote, no account — a folder of markdown
+and a Chroma index beside it:
 
-Writing back measures instead of guessing: after indexing it reads the base's own
-chunk report and tells you when a note collapsed into a single chunk, because a
-heading-less note embeds as one diluted blob and stops being findable.
+```
+~/.local/share/smartclaude/kb/
+  categorias/<category>/<note>.md    the notes, plain text
+  vk.py                              indexer: sync | index | query | stats
+  .venv/                             interpreter with chromadb
+```
+
+The vector database lives outside the tree at `~/.cache/smartclaude/kb-index`, so
+the notes stay portable: copy the folder, grep it, back it up with `cp`, and the
+index rebuilds from it.
+
+If chromadb cannot be installed — offline, no pip, a proxy in the way — the notes
+folder is still created and the installer prints the three commands that finish the
+job by hand. An optional feature that aborts an install is worse than one that says
+what is missing.
+
+Location override: `SMARTCLAUDE_KB_REPO`. Discovery order is that variable, then the
+local base above, then a pre-existing `~/projects/valeria-knowledge` if one is there.
+
+Two things worth knowing about how it indexes and writes:
+
+- **It chunks on headings.** Measured on a benchmarked corpus: whole-file indexing
+  gave recall@5 of 94.4%, per-section gave 100%. So a note needs `## ` sections with
+  real body text; a heading-less note embeds as one diluted blob and stops being
+  findable. `remember` measures this after writing and says so when it happened.
+- **Nothing is uploaded and nothing is versioned.** This base is local by design.
+  There is no `sync` to a remote; the verb exists only to reindex.
 
 ## Feature: import from another agent
 
@@ -311,8 +335,9 @@ scripts/import_skills.py import registry, native copy and legacy conversion
 scripts/sync_skills.py   symlink mirror, idempotent
 scripts/worker.py        detached distillation worker
 scripts/guide.py         materialises the guidance skill at install time
+scripts/kb_init.py       creates the local knowledge base at install time
 scripts/instructions.py  the managed block in CLAUDE.md (append, never rewrite)
-templates/               the guidance skill, shipped as a template not a SKILL.md
+templates/               the guidance skill and the indexer, shipped as templates
 scripts/lib/paths.py     resolution + containment (the security boundary)
 scripts/lib/guard.py     snapshot / verify / rollback / validation
 scripts/lib/memory.py    knowledge-base recall and write-back
