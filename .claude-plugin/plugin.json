@@ -14,5 +14,6 @@
     "symlink",
     "guard",
     "recall"
-  ]
+  ],
+  "icon": "./.claude-plugin/icon.png"
 }

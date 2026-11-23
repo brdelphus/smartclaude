@@ -1,6 +1,6 @@
 ---
 description: Save a durable lesson to the external knowledge base. Use when a session produced something a future session would otherwise rediscover.
-argument-hint: [title]
+argument-hint: "[title]"
 ---
 
 ## What belongs here

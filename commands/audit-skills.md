@@ -1,6 +1,6 @@
 ---
 description: Audit every installed skill and report what is broken, what never fires, and what it costs on every message. Use when asked to audit, check, review, measure or clean up skills, to find out why a skill never runs or triggers, to learn what the skills cost in tokens or context, or when the agent got slower or heavier since things were installed. Also use before installing a skill from a stranger.
-argument-hint: [skills-directory] [--only-defects] [--json]
+argument-hint: "[skills-directory] [--only-defects] [--json]"
 ---
 
 # Skill Audit

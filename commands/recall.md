@@ -1,6 +1,6 @@
 ---
 description: Search the external knowledge base and answer from what it found. Use when the question is about this fleet's history, past incidents, or a decision made before this session.
-argument-hint: [terms] [--cat categoria]
+argument-hint: "[terms] [--cat categoria]"
 ---
 
 ## Search the knowledge base

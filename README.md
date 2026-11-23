@@ -333,7 +333,7 @@ worse than one that does nothing.
 ## Layout
 
 ```
-.claude-plugin/          manifest + marketplace entry
+.claude-plugin/          manifest + marketplace entry + icon
 hooks/hooks.json         event wiring
 scripts/hook.py          one entry point, one subcommand per event
 scripts/cli.py           recall / remember / status / distill / mirror
@@ -359,10 +359,37 @@ docs/                    architecture, upstream provenance
 ```bash
 python3 tests/test_symlink_guard.py     # the symlink guarantee
 python3 tests/test_no_foreign_agent.py  # ships empty; no implicit reads
+python3 tests/test_instructions.py      # CLAUDE.md is edited, never rewritten
+python3 tests/test_guide_skill.py       # the guidance skill passes its own audit
+python3 tests/test_kb_init.py           # the knowledge base is created, not assumed
+python3 tests/test_provenance.py        # imported skills stay attributable
+python3 tests/test_frontmatter.py       # every command file parses and the icon resolves
 ```
 
-Both build their own throwaway trees, so they run on a machine where none of those
-agents is installed — which is exactly the machine this has to work on.
+All of them build their own throwaway trees, so they run on a machine where none of
+those agents is installed — which is exactly the machine this has to work on.
+
+`test_frontmatter.py` exists because three command files once shipped with YAML that
+did not parse (`argument-hint: [a] [b]`, unquoted, is a flow sequence) and one with a
+stray tuple welded around its description. Claude Code does not fail on either: it
+loads the command with its metadata silently dropped, so the command exists and never
+fires for the right reason. Silent degradation is the failure mode worth a test.
+
+### The icon, and the validator version
+
+`plugin.json` carries an `icon` pointing at `.claude-plugin/icon.png` (512×512 PNG).
+That field feeds Anthropic's directory listing; Claude Code itself never reads it.
+
+The one caveat, straight from the manifest reference: `claude plugin validate` reports
+`icon` as an **unknown field** on Claude Code **before v2.1.281**, which makes
+`claude plugin validate --strict` fail there. On v2.1.281 and later it is recognised
+and silent. So:
+
+- `claude plugin validate .` — passes on any version (warning at most)
+- `claude plugin validate . --strict` — **fails below v2.1.281** because of `icon`
+
+If you are on an older build and need `--strict` to pass, delete the `icon` key. It
+changes nothing about how the plugin runs.
 
 ## What is tested, and what is not
 

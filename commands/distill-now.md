@@ -1,6 +1,6 @@
 ---
 description: Distill the current session into a skill now, ignoring the threshold. Use when a session taught something clearly worth keeping and waiting for the automatic trigger is not wanted.
-argument-hint: [--transcript caminho]
+argument-hint: "[--transcript caminho]"
 ---
 
 ## Distill immediately

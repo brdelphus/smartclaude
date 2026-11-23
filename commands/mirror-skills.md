@@ -1,5 +1,5 @@
 ---
-description: "('Link an external skills tree into the Claude Code skills directory by symlink, idempotently. Use when the operator maintains skills elsewhere and wants them visible here, asks why an external skill is not loading, or after the source tree gained or lost a skill.',)"
+description: "Link an external skills tree into the Claude Code skills directory by symlink, idempotently. Use when the operator maintains skills elsewhere and wants them visible here, asks why an external skill is not loading, or after the source tree gained or lost a skill."
 ---
 
 ## Mirror, never copy
