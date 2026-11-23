@@ -293,7 +293,7 @@ where a skill only loads when its description matches; a Copilot
 flagged as *not a skill*. Preserved where possible: `globs` and `applyTo` become
 `paths`.
 
-Nothing is overwritten without `--force`. A hand-written skill outranks an imported
+Nothing is overwritten without asking. A hand-written skill outranks an imported
 one.
 
 ## Feature: audit
@@ -463,6 +463,7 @@ than one that has none.
 | **Windows `install.ps1`** | **Not tested.** See below. |
 | **PowerShell 5.1** | **Not tested.** The script accepts 5.1 (`PSEdition -eq 'Desktop'`), but only PowerShell 7.7 Core on Linux was exercised. |
 | **The plugin itself** | Tested on Linux with Claude Code 2.1.187: manifest validation, both test suites, install, idempotency, uninstall. |
+| **The importers** | Eight test suites cover conversion, collision handling, dry runs and the `NEVER SAYS WHEN` warning. Where a real Copilot or Cursor tree was not available the trees are synthesised — the parsing of *their* exact formats on a real machine is still the weaker link. |
 
 What *was* done for `install.ps1`, and what that is worth:
 

@@ -1,6 +1,6 @@
 ---
 description: Import skills from another agent (Cursor, Copilot, Claude, Hermes, .agents) into this one. Use when the operator wants existing skills carried over, or asks what can be imported from another tool.
-argument-hint: --from <agent> [--list] [--dry-run] [--force]
+argument-hint: --from <agent> [--list] [--dry-run] [--on-conflict skip|force|rename]
 ---
 
 ## Nothing is read unless the operator names it
@@ -44,9 +44,14 @@ one of them prints a warning.
   as reference text, flagged as *not a skill*. Splitting it into real skills is
   manual work.
 - **`globs` / `applyTo`** — preserved as `paths`, which Cursor and Copilot both read.
-- **`--force` was not given** — an existing skill is skipped, never overwritten.
-  A hand-written skill outranks an imported one; that is the whole point of not
-  clobbering it.
+- **A name is already taken.** Two agents can legitimately both own a skill called
+  `skill-audit`; neither is wrong, and the operator does not want to choose between
+  losing the import and losing the skill that was already working. Default is
+  `--on-conflict skip` (safe, says so). `--on-conflict rename` keeps both, naming the
+  new one after its source (`skill-audit-copilot`) and rewriting the `name:` field to
+  match — renaming only the folder leaves a skill answering to the old name.
+  `--on-conflict force` replaces, and should be named as the destructive option it is.
+  Offer `rename` first: a collision is usually a naming accident, not a disagreement.
 
 After importing, offer `/audit-skills`. Imported material is exactly the kind of
 thing that has never been measured.

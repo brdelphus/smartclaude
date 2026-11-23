@@ -261,14 +261,40 @@ def _render(name: str, description: str, body: str, path_globs: Optional[List[st
 # ---------------------------------------------------------------------------
 
 
-def install(item: Dict[str, object], dst_root: Path, force: bool) -> Dict[str, object]:
+def install(item: Dict[str, object], dst_root: Path, on_conflict: str = "skip",
+            source: str = "unknown") -> Dict[str, object]:
+    """Write one skill, deciding what to do when the name is already taken.
+
+    Importing from another agent collides by design: two tools can perfectly well both
+    own a skill called `skill-audit`, and neither is wrong. Offering only "skip" and
+    "overwrite" forces a choice between losing the import and losing the skill that was
+    already working. "rename" keeps both, named after where the new one came from.
+    """
     name, text, warnings = build_skill(item)
     target = dst_root / name
     source_dir: Path = item["path"]  # type: ignore[assignment]
     md: Path = item["md"]  # type: ignore[assignment]
+    existed = target.exists()
 
-    if target.exists() and not force:
-        return {"name": name, "state": "skipped", "warnings": warnings + ["already exists (use --force)"]}
+    if existed and on_conflict == "skip":
+        return {"name": name, "state": "skipped",
+                "warnings": warnings + [f"already exists — keep it with --on-conflict skip, "
+                                        f"replace it with --on-conflict force, or keep both "
+                                        f"with --on-conflict rename"]}
+
+    if existed and on_conflict == "rename":
+        base = name
+        candidate = f"{base}-{source}"
+        counter = 2
+        while (dst_root / candidate).exists():
+            candidate = f"{base}-{source}-{counter}"
+            counter += 1
+        warnings.append(f"renamed to {candidate} — {base} already existed and was left alone")
+        name = candidate
+        target = dst_root / name
+        # The frontmatter name is what the agent loads; renaming the folder alone would
+        # leave a skill that answers to the old name.
+        text = re.sub(r"^name:.*$", f"name: {name}", text, count=1, flags=re.M)
 
     target.mkdir(parents=True, exist_ok=True)
     (target / "SKILL.md").write_text(text, encoding="utf-8")
@@ -285,7 +311,7 @@ def install(item: Dict[str, object], dst_root: Path, force: bool) -> Dict[str, o
                 shutil.copytree(origin, dest, symlinks=False)
                 warnings.append(f"carried {sub}/")
 
-    return {"name": name, "state": "installed" if not target.exists() else "overwritten",
+    return {"name": name, "state": "overwritten" if existed else "installed",
             "from": str(md), "source": item.get("source", "unknown"),
             "kind": item.get("kind", "unknown"), "warnings": warnings}
 
@@ -297,7 +323,11 @@ def main() -> int:
     ap.add_argument("--dst", default=None, help="skills root (default: the Claude Code one)")
     ap.add_argument("--list", action="store_true", help="show what is importable, write nothing")
     ap.add_argument("--dry-run", action="store_true")
-    ap.add_argument("--force", action="store_true", help="overwrite skills that already exist")
+    ap.add_argument("--on-conflict", choices=("skip", "force", "rename"), default="skip",
+                    help="what to do when the skill name is taken: skip (default), "
+                         "force to replace it, rename to keep both")
+    ap.add_argument("--force", action="store_true",
+                    help="same as --on-conflict force")
     ap.add_argument("--only", default=None, help="import just this skill name")
     args = ap.parse_args()
 
@@ -344,13 +374,30 @@ def main() -> int:
             print(f"  {name:<34} {item['kind']:<12} {item['md']}{flag}")
         return 0
 
+    mode = "force" if args.force else args.on_conflict
+
     results = []
     for item in items:
-        if args.dry_run:
-            name, _, warnings = build_skill(item)
-            results.append({"name": name, "state": "would install", "warnings": warnings})
-        else:
-            results.append(install(item, dst_root, args.force))
+        if not args.dry_run:
+            results.append(install(item, dst_root, mode, args.source))
+            continue
+
+        # A dry run that ignores collisions lies about the one thing the operator is
+        # asking it: what will this do to the tree I already have.
+        name, _, warnings = build_skill(item)
+        if (dst_root / name).exists():
+            if mode == "skip":
+                results.append({"name": name, "state": "skipped",
+                                "warnings": warnings + ["already exists — would be skipped"]})
+                continue
+            if mode == "rename":
+                base, candidate, counter = name, f"{name}-{args.source}", 2
+                while (dst_root / candidate).exists():
+                    candidate = f"{base}-{args.source}-{counter}"
+                    counter += 1
+                warnings = warnings + [f"already exists — would be renamed to {candidate}"]
+                name = candidate
+        results.append({"name": name, "state": "would install", "warnings": warnings})
 
     installed = [r for r in results if r["state"] in ("installed", "overwritten", "would install")]
 
