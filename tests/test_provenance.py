@@ -97,6 +97,22 @@ def main() -> int:
     check("symlinked skill detected", on_disk.get("mirrored") is True)
     check("local skill is not flagged as mirrored", on_disk.get("plain") is False)
 
+    print("a root reached through a symlink does not turn every skill into a mirror")
+    # macOS: tempfile.mkdtemp() returns /var/folders/... which resolves to
+    # /private/var/folders/..., so an absolute-path comparison called every local
+    # skill mirrored and the suite failed on a machine where nothing was wrong.
+    real = tmp / "realtree"
+    make_skill(real, "local-one")
+    alias = tmp / "aliastree"
+    alias.symlink_to(real, target_is_directory=True)
+    aliased = cli._skills_on_disk(alias)
+    check("local skill under an aliased root stays local",
+          aliased.get("local-one") is False, str(aliased))
+    (alias / "linked").symlink_to(tmp / "elsewhere" / "mirrored", target_is_directory=True)
+    aliased = cli._skills_on_disk(alias)
+    check("a real mirror under an aliased root is still detected",
+          aliased.get("linked") is True, str(aliased))
+
     print("classify splits mirrored, imported and unrecorded")
     provenance.record([{"name": "plain", "source": "copilot"}], path=ledger)
     mirrored = [k for k, v in on_disk.items() if v]

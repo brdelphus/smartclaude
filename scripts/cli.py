@@ -68,6 +68,10 @@ def _skills_on_disk(root: Path) -> dict:
     nested folders) and reports each as a separate skill.
     """
     found = {}
+    # Compare inside the root, never the absolute path. On macOS tempfile.mkdtemp()
+    # hands back /var/folders/... which resolves to /private/var/folders/..., so every
+    # entry looks like a symlink and every local skill is reported as mirrored.
+    root_real = Path(os.path.realpath(root))
     pattern = os.path.join(str(root), "**", "SKILL.md")
     for hit in sorted(glob.glob(pattern, recursive=True)):
         parent = Path(hit).parent
@@ -75,7 +79,8 @@ def _skills_on_disk(root: Path) -> dict:
             key = parent.relative_to(root).as_posix()
         except ValueError:
             key = parent.name
-        found[key] = os.path.realpath(hit) != hit
+        expected = root_real / parent.relative_to(root) if parent.is_relative_to(root) else parent
+        found[key] = Path(os.path.realpath(parent)) != expected
     return found
 
 
