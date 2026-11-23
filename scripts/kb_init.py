@@ -185,8 +185,8 @@ def _build_venv(root: Path, verbose: bool = False) -> tuple[bool, str]:
     if _has_chromadb(python):
         return True, "chromadb already present"
 
-    _say(verbose, "installing chromadb — this downloads a few hundred MB "
-                  "(onnxruntime, numpy, tokenizers) and can take minutes on a slow link")
+    _say(verbose, "installing chromadb — 84 packages: about 106 MB to download and "
+                  "490 MB on disk (onnxruntime alone is 78 MB). Minutes on a slow link.")
     # No --user fallback: pip refuses it outright inside a virtualenv ("Can not
     # perform a '--user' install"), so the retry could never succeed and only buried
     # the first, real error under a second, invented one.

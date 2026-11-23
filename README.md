@@ -100,11 +100,11 @@ refuses to continue on a missing prerequisite rather than installing something
 half-working.
 
 **The knowledge-base step is slow and says so.** It creates a Python environment and
-installs chromadb, which pulls onnxruntime, numpy and tokenizers — a few hundred
-megabytes. On a fresh machine that is minutes, and pip prints its own progress while
-it runs. If it cannot finish, the notes folder still exists and the message names the
-real pip error plus the three commands to complete it by hand. Nothing else in the
-install depends on it.
+installs chromadb: **84 packages, about 106 MB downloaded and 490 MB on disk**
+(onnxruntime alone is 78 MB of that). On a fresh machine that is minutes, and pip
+prints its own progress while it runs. If it cannot finish, the notes folder still
+exists and the message names the real pip error plus the three commands to complete
+it by hand. Nothing else in the install depends on it.
 
 ### What it writes to your CLAUDE.md
 
