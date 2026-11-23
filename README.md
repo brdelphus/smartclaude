@@ -46,10 +46,21 @@ you did not choose is not a migration, it is an ambush.
 
 Requires Python 3.9+ and Claude Code 2.x.
 
+**One line, no clone** — the plugin ships from this repo's marketplace entry:
+
+```
+/plugin install smartclaude --marketplace brdelphus/smartclaude
+```
+
+That is the whole install on Claude Code 2.1.275 or later. It gets you the plugin,
+its commands and its hooks. It does **not** create the knowledge base or write the
+guidance skill — those need the scripts, so use the installer below if you want the
+full setup.
+
 **Linux**
 
 ```bash
-git clone https://github.com/Rgraeff/smartclaude.git
+git clone https://github.com/brdelphus/smartclaude.git
 cd smartclaude
 ./install.sh
 ```
@@ -59,7 +70,7 @@ installer offers to get it via `brew install python@3.12`; if you prefer to mana
 it yourself, install it first and the script just verifies what is there.
 
 ```bash
-git clone https://github.com/Rgraeff/smartclaude.git
+git clone https://github.com/brdelphus/smartclaude.git
 cd smartclaude
 ./install.sh
 ```
@@ -72,7 +83,7 @@ cd smartclaude
 > it as untested until you have. See [What is tested](#what-is-tested-and-what-is-not).
 
 ```powershell
-git clone https://github.com/Rgraeff/smartclaude.git
+git clone https://github.com/brdelphus/smartclaude.git
 cd smartclaude
 .\install.ps1
 ```
