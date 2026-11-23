@@ -38,6 +38,13 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from lib import paths, provenance  # noqa: E402
 
+# Same test the audit uses, so a skill that imports clean also audits clean. Two
+# different definitions of "says when" would mean importing a skill and then being
+# told by the audit that your import produced a broken one.
+WHEN = re.compile(
+    r"\b(use when|use this when|when you|when the|if you|for when|triggers? on)\b", re.I
+)
+
 # ---------------------------------------------------------------------------
 # Where each agent keeps things. Paths are relative to a home dir or to the
 # current project, and are only probed when that agent is named.
@@ -180,6 +187,15 @@ def build_skill(item: Dict[str, object]) -> Tuple[str, str, List[str]]:
         if not desc:
             warnings.append("had no description; wrote a placeholder — fix it or it never fires")
             desc = f"Use when working on {name.replace('-', ' ')}."
+        elif not WHEN.search(desc):
+            # Preserved on purpose — it is someone else's wording, not ours to
+            # rewrite. But a description that never names a trigger is a skill that
+            # loads on every message and can never be chosen, and the import is the
+            # last moment anybody is looking at it.
+            warnings.append(
+                "description never says WHEN to use it — as a skill it may never fire; "
+                "rewrite it after import or run the audit"
+            )
         return slugify(name), _render(name, desc, body, list_field(front, "paths")), warnings
 
     if kind == MDC_TREE:

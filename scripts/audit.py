@@ -83,6 +83,10 @@ def _kb_roots() -> list[str]:
     return unique
 
 
+# execv() replaces the process, so the interpreter we started on survives only in
+# the environment. Without this the diagnostic reported the post-switch python as
+# if it had been the original, which is exactly the confusion it exists to remove.
+ORIGINAL_PYTHON = os.environ.get("SMARTCLAUDE_AUDIT_STARTED_AS") or sys.executable
 TOKENIZER_PROBES: list[str] = []
 
 
@@ -120,6 +124,7 @@ def _reexec_with_tokenizer(argv: list[str]) -> None:
             if probe.returncode != 0:
                 continue
             os.environ["SMARTCLAUDE_AUDIT_REEXEC"] = "1"
+            os.environ["SMARTCLAUDE_AUDIT_STARTED_AS"] = sys.executable
             sys.stdout.flush()
             sys.stderr.flush()
             try:
@@ -291,6 +296,70 @@ def explain(rows) -> int:
     return 0
 
 
+def doctor() -> int:
+    """Print why the audit measures or estimates, and where it looked.
+
+    Chasing 'tiktoken not installed' across several machines turns into guesswork
+    because there are three separate questions: which interpreter runs this file, does
+    that interpreter have tiktoken, and does the environment the audit would switch to
+    have it. Answer all three at once, in the same words the report uses.
+    """
+    print("audit diagnostics")
+    print(f"  started on  : {ORIGINAL_PYTHON}")
+    if ORIGINAL_PYTHON != sys.executable:
+        print(f"  now running : {sys.executable}   (re-launched)")
+    else:
+        print(f"  running on  : {sys.executable}   (no re-launch)")
+    print(f"  python      : {sys.version.split()[0]}")
+    print(f"  plugin root : {os.path.dirname(os.path.dirname(os.path.abspath(__file__)))}")
+
+    try:
+        import tiktoken
+
+        version = getattr(tiktoken, "__version__", "unknown")
+        print(f"  tiktoken    : present ({version}) — this run MEASURES")
+    except ImportError:
+        print("  tiktoken    : ABSENT in this interpreter")
+
+    print("\n  environments the audit would switch to:")
+    any_ready = False
+    for root in _kb_roots():
+        print(f"    base    {root}")
+        for rel in (("bin", "python"), ("Scripts", "python.exe")):
+            candidate = os.path.join(root, ".venv", *rel)
+            if not os.path.isfile(candidate):
+                continue
+            try:
+                probe = subprocess.run([candidate, "-c", "import tiktoken"],
+                                       capture_output=True, timeout=60)
+                ready = probe.returncode == 0
+            except (OSError, subprocess.SubprocessError):
+                ready = False
+            any_ready = any_ready or ready
+            print(f"      python  {candidate}")
+            print(f"      tiktoken {'present — re-launch would measure' if ready else 'ABSENT'}")
+
+    print("\n  verdict:")
+    try:
+        import tiktoken  # noqa: F401
+
+        if ORIGINAL_PYTHON != sys.executable:
+            print("    the interpreter this was started on had none, so it switched")
+            print("    to the one above. That switch is what makes it measure.")
+        else:
+            print("    measuring with the interpreter that is already running.")
+    except ImportError:
+        if any_ready:
+            print("    would re-launch into an environment that has tiktoken.")
+            print("    if the report still says ESTIMATED, the file being run is an")
+            print("    older copy — check `plugin root` above against your clone.")
+        else:
+            print("    no tiktoken anywhere: the report will ESTIMATE.")
+            print("    fastest fix, no venv involved:")
+            print(f"      {sys.executable} -m pip install tiktoken")
+    return 0
+
+
 def main() -> int:
     _reexec_with_tokenizer(sys.argv[1:])
 
@@ -298,9 +367,14 @@ def main() -> int:
     ap.add_argument("root", nargs="?", default=os.path.expanduser("~/.claude/skills"))
     ap.add_argument("--json", action="store_true")
     ap.add_argument("--only-defects", action="store_true", help="hide the clean skills")
+    ap.add_argument("--doctor", action="store_true",
+                    help="print which interpreter is used and whether it measures")
     ap.add_argument("--explain", action="store_true",
                     help="print what to change, on which file, for each defect")
     args = ap.parse_args()
+
+    if args.doctor:
+        return doctor()
 
     if not os.path.isdir(args.root):
         sys.exit(f"No such directory: {args.root}")
