@@ -1,6 +1,7 @@
 {
   "name": "smartclaude",
   "owner": { "name": "Rodrigo Amaru Graeff" },
+  "description": "Skills you can safely take from anywhere, audit, and let improve themselves — plus recall from your own notes. Ships with zero skills by design.",
   "plugins": [
     {
       "name": "smartclaude",
