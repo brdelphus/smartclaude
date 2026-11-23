@@ -87,7 +87,54 @@ def _kb_roots() -> list[str]:
 # the environment. Without this the diagnostic reported the post-switch python as
 # if it had been the original, which is exactly the confusion it exists to remove.
 ORIGINAL_PYTHON = os.environ.get("SMARTCLAUDE_AUDIT_STARTED_AS") or sys.executable
+def _have_tiktoken() -> bool:
+    try:
+        import tiktoken  # noqa: F401
+
+        return True
+    except Exception:  # noqa: BLE001 - a broken partial install counts as absent
+        return False
+
+
+def _borrow_from_venv() -> str | None:
+    """Make tiktoken importable without starting another process.
+
+    Re-launching via execv() is the wrong shape for this: it replaces the running
+    process, which a sandboxed host may refuse or log oddly, and it silently does
+    nothing when the interpreter is started by a tool wrapper rather than a shell.
+    The package is already on disk — adding its site-packages to sys.path gets the same
+    result with no second interpreter and no exec at all.
+
+    Returns the directory that worked, or None. A wheel built for another minor Python
+    will fail to import here; that is caught and treated as 'not available', which is
+    what it is for this process.
+    """
+    if _have_tiktoken():
+        return None
+    layouts = (
+        (".venv", "lib", "python*", "site-packages"),
+        (".venv", "lib64", "python*", "site-packages"),
+        (".venv", "Lib", "site-packages"),
+    )
+    for root in _kb_roots():
+        for layout in layouts:
+            for candidate in glob.glob(os.path.join(root, *layout)):
+                sys.path.insert(0, candidate)
+                try:
+                    import tiktoken  # noqa: F401
+
+                    global TIKTOKEN_ORIGIN
+                    TIKTOKEN_ORIGIN = f"borrowed from {candidate}"
+                    return candidate
+                except Exception:  # noqa: BLE001
+                    sys.path.remove(candidate)
+    return None
+
+
 TOKENIZER_PROBES: list[str] = []
+# How this process ended up able to measure: the interpreter, a borrowed
+# site-packages, or a re-launch. The report has to be able to explain itself.
+TIKTOKEN_ORIGIN = "interpreter" if _have_tiktoken() else None
 
 
 def _reexec_with_tokenizer(argv: list[str]) -> None:
@@ -99,14 +146,15 @@ def _reexec_with_tokenizer(argv: list[str]) -> None:
     venv, which the installer creates — so instead of asking every caller to know
     which interpreter to use, the audit moves itself there.
     """
+    if _have_tiktoken():
+        return
+    # Cheapest path first: borrow the site-packages and stay in this process. This
+    # runs even when a re-launch is forbidden — the switch is optional, measuring is
+    # not, and the two are different decisions.
+    if _borrow_from_venv():
+        return
     if os.environ.get("SMARTCLAUDE_AUDIT_REEXEC"):
         return
-    try:
-        import tiktoken  # noqa: F401
-
-        return
-    except ImportError:
-        pass
 
     roots = _kb_roots()
 
@@ -317,9 +365,11 @@ def doctor() -> int:
         import tiktoken
 
         version = getattr(tiktoken, "__version__", "unknown")
+        origin = TIKTOKEN_ORIGIN or "interpreter"
         print(f"  tiktoken    : present ({version}) — this run MEASURES")
+        print(f"  via         : {origin}")
     except ImportError:
-        print("  tiktoken    : ABSENT in this interpreter")
+        print("  tiktoken    : ABSENT and could not be borrowed")
 
     print("\n  environments the audit would switch to:")
     any_ready = False
@@ -343,7 +393,11 @@ def doctor() -> int:
     try:
         import tiktoken  # noqa: F401
 
-        if ORIGINAL_PYTHON != sys.executable:
+        origin = TIKTOKEN_ORIGIN or "interpreter"
+        if origin.startswith("borrowed"):
+            print("    measuring without a re-launch — the package was borrowed:")
+            print(f"      {origin}")
+        elif ORIGINAL_PYTHON != sys.executable:
             print("    the interpreter this was started on had none, so it switched")
             print("    to the one above. That switch is what makes it measure.")
         else:

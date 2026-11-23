@@ -168,6 +168,42 @@ def main() -> int:
         check("says what to change", "fix :" in out.stdout, out.stdout[:200])
         check("names the file", "edit:" in out.stdout or "origin" in out.stdout, out.stdout[:200])
 
+    print("measures by borrowing the package when it cannot re-launch")
+    # execv() replaces the process, which a sandboxed host can refuse or mask. The
+    # package is on disk either way, so adding its site-packages to sys.path must be
+    # enough — and that path is what has to keep working where exec does not.
+    with tempfile.TemporaryDirectory() as fake:
+        site = os.path.join(fake, ".venv", "lib", "python3.99", "site-packages")
+        os.makedirs(site)
+        with open(os.path.join(site, "tiktoken.py"), "w", encoding="utf-8") as fh:
+            fh.write(
+                "def get_encoding(name):\n"
+                "    return type('E', (), {'encode': lambda self, s: s.split()})()\n"
+            )
+        probe = subprocess.run(
+            [sys.executable, "-c", "import tiktoken"],
+            capture_output=True, text=True,
+        )
+        if probe.returncode == 0:
+            print("  note: this interpreter already has tiktoken — borrowing not exercised")
+        else:
+            out = subprocess.run(
+                [sys.executable, str(REPO / "scripts" / "audit.py"), "--doctor"],
+                capture_output=True, text=True,
+                env=dict(os.environ, SMARTCLAUDE_KB_REPO=fake,
+                         SMARTCLAUDE_AUDIT_REEXEC="1", XDG_DATA_HOME="/nonexistent"),
+            )
+            check("doctor says it borrowed", "borrowed from" in out.stdout, out.stdout[:400])
+            check("no re-launch needed", "no re-launch" in out.stdout, out.stdout[:300])
+
+            run = subprocess.run(
+                [sys.executable, str(REPO / "scripts" / "audit.py"), str(fresh)],
+                capture_output=True, text=True,
+                env=dict(os.environ, SMARTCLAUDE_KB_REPO=fake, XDG_DATA_HOME="/nonexistent"),
+            )
+            check("report says MEASURED", "MEASURED with tiktoken" in run.stdout,
+                  run.stdout[:300])
+
     print()
     if failures:
         print(f"{len(failures)} FAILED: {failures}")
