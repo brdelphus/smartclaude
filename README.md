@@ -9,18 +9,33 @@ tool. smartclaude adds those two, and nothing else.
 
 ## Scope
 
-Runs on **Claude Code and nothing else**. No other agent has to be installed, and
-none is read by default. The skills root is resolved from `CLAUDE_CONFIG_DIR` or
-`~/.claude`, full stop.
+Runs on **Claude Code and nothing else**. The skills root resolves from
+`CLAUDE_CONFIG_DIR` or `~/.claude`, full stop.
 
-Mirroring is opt-in and always names its source: `--src <dir>` or
-`SMARTCLAUDE_SKILLS_SRC`. With neither, the command refuses rather than guessing,
-because a guessed default works on one machine and silently does nothing on the
-next. `tests/test_no_foreign_agent.py` fails the build if executable code ever
-names another agent, or if a mirror runs without an explicit source.
+**The plugin ships with no skills.** It installs empty on purpose: a bundled skill
+would sit in context and fire before you had decided you wanted it.
 
-The external knowledge base is likewise optional: unset means the memory commands
-degrade to a no-op, never to an error.
+Existing skills come over by import, and import is always explicit — you name the
+source, because a guessed default works on one machine and silently does nothing
+on the next:
+
+```bash
+import_skills.py                      # what is importable here, writes nothing
+import_skills.py --from cursor --list # preview
+import_skills.py --from copilot --dry-run
+import_skills.py --from hermes
+```
+
+Sources: `claude`, `cursor`, `copilot`, `hermes`, `agents`. The first four are
+native Agent Skills (`SKILL.md` + `name`/`description`, the open format Claude,
+Cursor, Copilot and Codex all read), so they copy across with assets intact.
+Cursor's older `.mdc` rules and Copilot's `copilot-instructions.md` /
+`*.instructions.md` are **converted**, and every conversion prints what it could
+not preserve — an `alwaysApply: true` rule applied to everything, and a skill only
+loads when its description matches.
+
+Nothing is overwritten without `--force`. The external knowledge base is likewise
+optional: unset means the memory commands degrade to a no-op, never to an error.
 
 ## The two problems it solves
 
