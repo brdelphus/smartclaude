@@ -204,8 +204,19 @@ def _build_venv(root: Path, verbose: bool = False) -> tuple[bool, str]:
     return False, f"could not install chromadb: {tail[0][:200]}"
 
 
-def _reindex(root: Path, verbose: bool = False) -> tuple[bool, str]:
+def _interpreter(root: Path) -> Path:
+    """The venv's python when there is one, otherwise whatever runs this script.
+
+    The lexical index needs nothing but the standard library, so a machine where
+    chromadb could not be installed still gets a working, searchable base. That was
+    the whole point of shipping the second engine.
+    """
     python = _venv_python(root / ".venv")
+    return python if python.is_file() else Path(sys.executable)
+
+
+def _reindex(root: Path, verbose: bool = False) -> tuple[bool, str]:
+    python = _interpreter(root)
     _say(verbose, "indexing the notes")
     try:
         proc = subprocess.run(
@@ -254,21 +265,37 @@ def install(root: Path | None = None, install_deps: bool = True, verbose: bool =
                       "dependencies were not installed")
 
     ok, message = _build_venv(root, verbose=verbose)
-    if not ok:
-        return Result(
-            "created-no-index", root, steps,
-            f"{message}. Notes still work; to finish by hand: "
-            f"cd {root} && python3 -m venv .venv && .venv/bin/pip install chromadb && .venv/bin/python vk.py index",
-        )
-    steps.append(message)
+    if ok:
+        steps.append(message)
+    else:
+        # Not fatal any more. The lexical index needs no dependency, so the base is
+        # still searchable; chromadb only upgrades the search from BM25 to vectors.
+        steps.append("chromadb unavailable, using the lexical index")
+        _say(verbose, f"chromadb unavailable ({message}) — the lexical index will do")
 
     indexed, index_message = _reindex(root, verbose=verbose)
     if indexed:
         steps.append(index_message)
+    elif not ok:
+        return Result("created-no-index", root, steps,
+                      f"{index_message}. The notes are there; index them by hand with: "
+                      f"cd {root} && python3 vk.py index")
     else:
         return Result("created-no-index", root, steps, index_message)
 
+    if not ok:
+        return Result("exists" if not fresh else "created", root, steps,
+                      f"{message} — search uses the lexical index (BM25). Install chromadb "
+                      f"later for semantic search: cd {root} && python3 -m venv .venv "
+                      f"&& .venv/bin/pip install chromadb && .venv/bin/python vk.py index")
+
     return Result("exists" if not fresh else "created", root, steps)
+
+
+def _index_dir() -> Path:
+    """Where vk.py keeps its indexes; mirrors what the template resolves."""
+    configured = os.environ.get("SMARTCLAUDE_KB_INDEX")
+    return Path(configured) if configured else Path.home() / ".cache" / "smartclaude" / "kb-index"
 
 
 def status(root: Path | None = None) -> Result:
@@ -280,8 +307,17 @@ def status(root: Path | None = None) -> Result:
         steps.append("indexer present")
     notes = list((root / "categorias").rglob("*.md")) if (root / "categorias").is_dir() else []
     steps.append(f"{len(notes)} note(s)")
+
     python = _venv_python(root / ".venv")
-    steps.append("chromadb ready" if _has_chromadb(python) else "chromadb MISSING")
+    steps.append("chromadb ready" if _has_chromadb(python) else "chromadb absent (lexical only)")
+
+    index_dir = _index_dir()
+    engines = []
+    if (index_dir / "index.json").is_file():
+        engines.append("lexical")
+    if (index_dir / "chroma.sqlite3").exists():
+        engines.append("vector")
+    steps.append(f"index: {' + '.join(engines)}" if engines else "index MISSING (run vk.py index)")
     return Result("exists", root, steps)
 
 

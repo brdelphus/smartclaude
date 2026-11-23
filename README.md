@@ -229,23 +229,34 @@ semantic index, so a decision made three months ago is one search away instead o
 lost in a transcript.
 
 **It is created on install.** No git, no remote, no account — a folder of markdown
-and a Chroma index beside it:
+and an index beside it:
 
 ```
 ~/.local/share/smartclaude/kb/
   categorias/<category>/<note>.md    the notes, plain text
   vk.py                              indexer: sync | index | query | stats
-  .venv/                             interpreter with chromadb
+  .venv/                             optional: interpreter with chromadb
 ```
 
-The vector database lives outside the tree at `~/.cache/smartclaude/kb-index`, so
-the notes stay portable: copy the folder, grep it, back it up with `cp`, and the
-index rebuilds from it.
+Both indexes live outside the tree at `~/.cache/smartclaude/kb-index`, so the notes
+stay portable: copy the folder, grep it, back it up with `cp`, and the index rebuilds
+from it.
 
-If chromadb cannot be installed — offline, no pip, a proxy in the way — the notes
-folder is still created and the installer prints the three commands that finish the
-job by hand. An optional feature that aborts an install is worse than one that says
-what is missing.
+**Two engines, and the fallback is the default.** The markdown tree is indexed into a
+JSON file and searched with BM25 — standard library only, no download, no venv, works
+offline on any Python 3.9+. If `chromadb` is importable, `index` also builds a vector
+collection and `query` uses it instead; semantic search is an upgrade, not a
+requirement.
+
+That order is deliberate. This feature indexes text files, and needing 490 MB of
+onnxruntime to find a sentence in them failed on every machine where the dependency
+would not install — leaving a knowledge base with no index at all. A lexical index
+that always exists beats a semantic one that sometimes does not.
+
+If chromadb cannot be installed — offline, no pip, a proxy in the way — the install
+still finishes, still indexes, and says plainly that search is lexical. The command
+to add the vector engine later is printed. An optional feature that aborts an install
+is worse than one that says what is missing.
 
 Location override: `SMARTCLAUDE_KB_REPO`. Discovery order is that variable, then the
 local base above, then a pre-existing `~/projects/valeria-knowledge` if one is there.
@@ -254,7 +265,7 @@ Two things worth knowing about how it indexes and writes:
 
 - **It chunks on headings.** Measured on a benchmarked corpus: whole-file indexing
   gave recall@5 of 94.4%, per-section gave 100%. So a note needs `## ` sections with
-  real body text; a heading-less note embeds as one diluted blob and stops being
+  real body text; a heading-less note indexes as one diluted blob and stops being
   findable. `remember` measures this after writing and says so when it happened.
 - **Nothing is uploaded and nothing is versioned.** This base is local by design.
   There is no `sync` to a remote; the verb exists only to reindex.

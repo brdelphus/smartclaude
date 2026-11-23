@@ -71,6 +71,10 @@ gets overwritten on the next upgrade.
 
 def main() -> int:
     tmp = Path(tempfile.mkdtemp(prefix="smartclaude-kb-"))
+    # Isolate the index before anything runs. install() reindexes in-process, so
+    # passing env= to the later subprocesses was not enough: the functional run wrote
+    # chunks of the sample notes into the operator's real ~/.cache index.
+    os.environ["SMARTCLAUDE_KB_INDEX"] = str(tmp / "index")
     # Installing chromadb takes ~30s and hits PyPI. A suite that quietly does that on
     # every run is why `python3 tests/test_kb_init.py` felt hung. Structure is cheap
     # and always checked; the dependency install is opt-in.
@@ -118,6 +122,9 @@ def main() -> int:
 
     print("chromadb is available for the functional checks")
     python = kb_init._venv_python(root / ".venv")
+    # Keep the index inside the temp tree. Without this the functional run wrote
+    # chunks of the sample notes into the operator's real ~/.cache index.
+    index_env = dict(os.environ, SMARTCLAUDE_KB_INDEX=str(tmp / "index"))
     if not deps:
         print("  SKIP dependencies were not installed in this run")
     elif not kb_init._has_chromadb(python):
@@ -128,14 +135,14 @@ def main() -> int:
 
         index = subprocess.run(
             [str(python), str(root / "vk.py"), "index"],
-            cwd=str(root), capture_output=True, text=True,
+            cwd=str(root), capture_output=True, text=True, env=index_env,
         )
         check("index runs", index.returncode == 0, (index.stderr or "")[-300:])
         check("index counts chunks", "chunks" in index.stdout, index.stdout.strip()[:120])
 
         stats = subprocess.run(
             [str(python), str(root / "vk.py"), "stats"],
-            cwd=str(root), capture_output=True, text=True,
+            cwd=str(root), capture_output=True, text=True, env=index_env,
         )
         check("stats runs", stats.returncode == 0, stats.stderr[-200:])
         check("stats lists both notes",
@@ -144,14 +151,14 @@ def main() -> int:
 
         found = subprocess.run(
             [str(python), str(root / "vk.py"), "query", "when does the backup run", "-n", "3"],
-            cwd=str(root), capture_output=True, text=True,
+            cwd=str(root), capture_output=True, text=True, env=index_env,
         )
         check("query returns the right file", "mine.md" in found.stdout, found.stdout[:200])
         check("query uses the documented header format", "### " in found.stdout and "(dist " in found.stdout)
 
         filtered = subprocess.run(
             [str(python), str(root / "vk.py"), "query", "backup", "--cat", "dns", "-n", "3"],
-            cwd=str(root), capture_output=True, text=True,
+            cwd=str(root), capture_output=True, text=True, env=index_env,
         )
         check("--cat filters by category",
               "mine.md" not in filtered.stdout, filtered.stdout[:200])
