@@ -12,9 +12,10 @@ adds those, and nothing else.
 **It ships with zero skills.** A bundled skill would sit in context and fire before
 you decided you wanted it.
 
-> **Status: Claude Code only.** The tooling does not run on Claude Desktop or
-> claude.ai — their code execution is a remote sandbox, so a script cannot inspect
-> your disk. The skills themselves do port. Details in [Scope](#scope).
+> **Status: Claude Code.** Runs in the terminal and in the desktop app's **Code
+> tab**, which share the same agent runtime, settings file and plugin loader. In
+> **Chat** (claude.ai or the desktop chat) only the skills and commands survive —
+> hooks do not run on your machine there. Details in [Scope](#scope).
 
 ## Origin
 
@@ -363,44 +364,52 @@ tell us, or open an issue with the output.
 
 ## Scope
 
-Runs on **Claude Code and nothing else — for now**. The skills root resolves from
+Runs wherever **Claude Code's agent runtime** runs. The skills root resolves from
 `CLAUDE_CONFIG_DIR` or `~/.claude`, full stop. No foreign directory is read unless
 you name a source with `--from`, and mirroring refuses without `--src` rather than
 guessing: a guessed default works on one machine and silently does nothing on the
 next.
 
-### Claude Desktop and claude.ai: not supported
+### Which surface you are on decides what works
 
-Skills themselves are portable — Agent Skills is an open standard, and custom
-skills go into the desktop app by zipping the folder and uploading it under
-`Customize > Skills`, with *Code execution and file creation* enabled. **What does
-not port is the tooling.**
+"Claude Desktop" and "Claude Code" are not opposites. The desktop app contains a
+**Code tab** that runs the identical runtime as the terminal, reading the same
+`~/.claude/settings.json`, the same plugins, the same hooks and the same skills. The
+divide that actually matters is **local runtime versus remote sandbox**.
 
-| | Claude Code | Desktop / claude.ai |
-|---|---|---|
-| `SKILL.md` skills | ✅ directory | ✅ upload the folder as a ZIP |
-| `/audit-skills`, `/import-skills`, `/recall`, `/remember` | ✅ | ❌ |
-| Hooks (`SessionStart`, `PreToolUse`, `Stop`, …) | ✅ | ❌ |
-| Subagents | ✅ | ❌ |
-| Plugin marketplace / `claude plugin install` | ✅ | ❌ |
-| The scripts themselves | ✅ | ❌ |
+| Surface | Plugin skills + commands | Hooks | `audit.py`, `import_skills.py`, symlinks | This plugin |
+|---|---|---|---|---|
+| Claude Code (terminal) | ✅ | ✅ | ✅ | **full** |
+| Desktop app — Code tab | ✅ | ✅ | ✅ | **full** |
+| Desktop app / Cowork, local session | ✅ | ✅ (agents and hooks run on your computer) | ✅ | **full** |
+| Chat — claude.ai or desktop chat | ✅ instructions load | ❌ not on your machine | ❌ remote sandbox cannot see your disk | skills only |
 
-Hooks, slash commands, subagents and the plugin installer are Claude Code harness
-features with no desktop equivalent.
+The last row is the real limitation: in Chat the model runs in a remote sandbox, so
+a script that walks `~/.claude/skills`, reads a local Cursor tree, creates a symlink
+or invokes `claude -p` has nothing to walk. Skills and slash commands still load,
+because they are instructions rather than processes.
 
-The scripts fail for a different reason: **the desktop's code execution runs in a
-remote sandbox, not on your machine**. `audit.py` walking `~/.claude/skills`,
-`import_skills.py` reading a local Cursor tree, `sync_skills.py` making a symlink,
-`worker.py` invoking `claude -p` — none of them can see the disk they are meant to
-inspect.
+**Desktop-specific caveats**, from Anthropic's documentation:
 
-The realistic path to the desktop is an **MCP server**, since MCP runs locally over
-stdio and the desktop client speaks it natively. That would carry `audit`,
-`import`, `recall` and `remember` across. Hooks would still not port — nothing on
-the desktop intercepts a prompt before it reaches the model — and neither would
-end-of-session distillation.
+- Commands that open an interactive terminal panel are unavailable on the desktop.
+  `/hooks` is a read-only browser everywhere, so checking a hook still works.
+- The desktop does not inherit a shell profile. Environment variables for local
+  sessions go in the environment editor next to the prompt box, or under `env` in
+  `~/.claude/settings.json`.
+- Plugins added there get a graphical manager; `~/.claude/skills/` still loads
+  automatically as `name@skills-dir`.
 
-Until that exists: **Claude Code only.**
+**What I have not verified:** no desktop app was available on the machine where this
+was written, so the desktop rows above come from Anthropic's documentation rather
+than from a run. The terminal row is the one exercised end to end by
+`tests/` and `install.sh`.
+
+### Installing on the desktop
+
+The plugin marketplace is a git repository, and the desktop app can add one
+directly: **Plugins → Add → Add marketplace**, then `brdelphus/smartclaude`. The
+`install.sh` route is for the CLI; it registers the same marketplace with
+`claude plugin marketplace add`.
 
 ## Credit
 
