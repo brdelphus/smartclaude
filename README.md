@@ -123,6 +123,34 @@ python3 scripts/instructions.py install   # add or refresh it
 python3 scripts/instructions.py remove    # take it out
 ```
 
+### The guidance skill
+
+Installing also drops one skill into `~/.claude/skills/smartclaude-guide/`. It is
+what tells Claude **when** to reach for the rest of this plugin: audit skill health,
+search extended memory, save a finding, capture a procedure as a new skill, import
+from another agent, distill a finished session.
+
+Its core is one rule the model gets wrong on its own — **a fact goes to memory, a
+procedure goes to a skill**. A procedure stored as memory only surfaces if someone
+searches the right words mid-incident; a fact stored as a skill inflates every
+message forever and fires on questions it cannot answer.
+
+The repository ships **zero `SKILL.md` files** — a bundled skill would sit in
+context and fire before you decided you wanted it. So the skill lives as
+`templates/smartclaude-guide.md` and is materialised at install time. A test
+(`tests/test_guide_skill.py`) enforces both halves of that: the repo stays at zero,
+and the generated skill passes the audit it recommends — 154 lines, ~1,330 tokens,
+no defects.
+
+It refuses to overwrite a hand-written skill of the same name. If one exists, the
+installer says so and leaves it alone.
+
+```bash
+python3 scripts/guide.py status    # installed?
+python3 scripts/guide.py install   # add or refresh
+python3 scripts/guide.py remove    # take it out
+```
+
 ## Commands
 
 | Command | What it does |
@@ -281,6 +309,9 @@ scripts/audit.py         skill measurement
 scripts/import_skills.py import registry, native copy and legacy conversion
 scripts/sync_skills.py   symlink mirror, idempotent
 scripts/worker.py        detached distillation worker
+scripts/guide.py         materialises the guidance skill at install time
+scripts/instructions.py  the managed block in CLAUDE.md (append, never rewrite)
+templates/               the guidance skill, shipped as a template not a SKILL.md
 scripts/lib/paths.py     resolution + containment (the security boundary)
 scripts/lib/guard.py     snapshot / verify / rollback / validation
 scripts/lib/memory.py    knowledge-base recall and write-back

@@ -147,6 +147,8 @@ if ($Uninstall) {
 
     $instrOut = & $pyExe @pyArgs (Join-Path $RepoRoot 'scripts/instructions.py') remove 2>&1
     if ($instrOut) { Write-Ok ($instrOut -join ' ') }
+    $guideOut = & $pyExe @pyArgs (Join-Path $RepoRoot 'scripts/guide.py') remove 2>&1
+    if ($guideOut) { Write-Ok ($guideOut -join ' ') }
 
     Write-Warn 'state (queue, snapshots) kept under your config dir — delete it by hand to remove'
     Write-Say ''
@@ -228,6 +230,10 @@ Write-Step 'CLAUDE.md'
 $instrOut = & $pyExe @pyArgs (Join-Path $RepoRoot 'scripts/instructions.py') install 2>&1
 if ($LASTEXITCODE -ne 0) { Write-Die "could not update CLAUDE.md: $($instrOut -join ' ')" }
 Write-Ok ($instrOut -join ' ')
+
+Write-Step 'Guidance skill'
+$guideOut = & $pyExe @pyArgs (Join-Path $RepoRoot 'scripts/guide.py') install 2>&1
+if ($LASTEXITCODE -ne 0) { Write-Warn ($guideOut -join ' ') } else { Write-Ok ($guideOut -join ' ') }
 
 Write-Step 'Installed'
 

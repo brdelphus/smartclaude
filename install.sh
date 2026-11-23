@@ -149,6 +149,8 @@ if [ "${UNINSTALL:-0}" = "1" ]; then
   say "Done."
   INSTR_OUT="$("$PY_BIN" "$REPO_ROOT/scripts/instructions.py" remove 2>&1)" || true
   [ -n "$INSTR_OUT" ] && ok "$INSTR_OUT"
+  GUIDE_OUT="$("$PY_BIN" "$REPO_ROOT/scripts/guide.py" remove 2>&1)" || true
+  [ -n "$GUIDE_OUT" ] && ok "$GUIDE_OUT"
   exit 0
 fi
 
@@ -221,6 +223,11 @@ step "CLAUDE.md"
 INSTR_OUT="$("$PY_BIN" "$REPO_ROOT/scripts/instructions.py" install 2>&1)" \
   || die "could not update CLAUDE.md: $INSTR_OUT"
 ok "$INSTR_OUT"
+
+step "Guidance skill"
+GUIDE_OUT="$("$PY_BIN" "$REPO_ROOT/scripts/guide.py" install 2>&1)" \
+  || warn "guidance skill not installed: $GUIDE_OUT"
+ok "$GUIDE_OUT"
 
 step "Installed"
 

@@ -1,4 +1,6 @@
+# test scratch, never part of the project
+.hermes/
 __pycache__/
 *.pyc
-.venv/
-*.smartclaude-tmp
+*.pyo
+.pytest_cache/
