@@ -36,7 +36,7 @@ from typing import Dict, List, Optional, Tuple
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-from lib import paths  # noqa: E402
+from lib import paths, provenance  # noqa: E402
 
 # ---------------------------------------------------------------------------
 # Where each agent keeps things. Paths are relative to a home dir or to the
@@ -270,7 +270,8 @@ def install(item: Dict[str, object], dst_root: Path, force: bool) -> Dict[str, o
                 warnings.append(f"carried {sub}/")
 
     return {"name": name, "state": "installed" if not target.exists() else "overwritten",
-            "from": str(md), "warnings": warnings}
+            "from": str(md), "source": item.get("source", "unknown"),
+            "kind": item.get("kind", "unknown"), "warnings": warnings}
 
 
 def main() -> int:
@@ -307,7 +308,9 @@ def main() -> int:
     chosen = sorted(SOURCES) if args.source == "all" else [args.source]
     items: List[Dict[str, object]] = []
     for name in chosen:
-        items.extend(discover(name))
+        for found in discover(name):
+            found["source"] = name
+            items.append(found)
 
     if args.only:
         items = [i for i in items if slugify(Path(str(i["md"])).stem) == slugify(args.only)
@@ -334,6 +337,16 @@ def main() -> int:
             results.append(install(item, dst_root, args.force))
 
     installed = [r for r in results if r["state"] in ("installed", "overwritten", "would install")]
+
+    # Write down where each one came from: an imported skill is a local copy and
+    # nothing else in the tree distinguishes it from a hand-written one.
+    if not args.dry_run:
+        recorded = provenance.record(
+            {"name": r["name"], "source": r.get("source"), "kind": r.get("kind"), "from": r.get("from")}
+            for r in installed
+        )
+        if recorded:
+            print(f"recorded provenance for {recorded} skill(s)")
     skipped = [r for r in results if r["state"] == "skipped"]
     warned = [r for r in results if r["warnings"]]
 

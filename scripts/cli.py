@@ -13,13 +13,15 @@ on stdout that a slash command would then have to decode.
 from __future__ import annotations
 
 import argparse
+import glob
+import os
 import subprocess
 import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-from lib import distill, guard, memory, paths  # noqa: E402
+from lib import distill, guard, memory, paths, provenance  # noqa: E402
 
 
 def cmd_recall(args) -> int:
@@ -55,6 +57,28 @@ def cmd_remember(args) -> int:
     return 0
 
 
+def _skills_on_disk(root: Path) -> dict:
+    """Every skill in the tree, and whether it is a link into another tree.
+
+    Recursive on purpose: a mirrored tree can nest skills under category folders,
+    so a single-level glob silently misses them. "Mirrored" is decided by comparing
+    the resolved path with the nominal one — if they differ, some component of the
+    path is a symlink. Counting from `escaped_from()` instead overcounts, because
+    that walks into the skill's own subdirectories (references/, scripts/, and any
+    nested folders) and reports each as a separate skill.
+    """
+    found = {}
+    pattern = os.path.join(str(root), "**", "SKILL.md")
+    for hit in sorted(glob.glob(pattern, recursive=True)):
+        parent = Path(hit).parent
+        try:
+            key = parent.relative_to(root).as_posix()
+        except ValueError:
+            key = parent.name
+        found[key] = os.path.realpath(hit) != hit
+    return found
+
+
 def cmd_status(_args) -> int:
     root = paths.skills_root()
     print(f"skills root : {root}")
@@ -64,18 +88,34 @@ def cmd_status(_args) -> int:
     if kb:
         print(f"interpreter : {memory.interpreter(kb)}")
 
-    try:
-        snap = guard.Snapshot(root).capture()
-    except Exception as exc:
-        print(f"snapshot failed: {exc.__class__.__name__}")
+    if not root.is_dir():
+        print(f"\nno skills directory at {root}")
         return 0
 
-    escaped = snap.escaped_from()
-    unique = sorted({e["skill"] for e in escaped})
-    print(f"\nfiles in tree     : {len(snap.entries)}")
-    print(f"skills mirrored   : {len(unique)}")
-    if unique:
-        origins = sorted({str(Path(e["real"]).parent.parent.parent) for e in escaped})
+    on_disk = _skills_on_disk(root)
+    mirrored = sorted(name for name, is_link in on_disk.items() if is_link)
+    split = provenance.classify(sorted(on_disk), mirrored)
+
+    print(f"\nskills total      : {split['total']}")
+    print(f"skills mirrored   : {len(split['mirrored'])}")
+    print(f"skills imported   : {len(split['imported'])}")
+    print(f"skills unrecorded : {len(split['local'])}")
+
+    if split["sources"]:
+        listed = ", ".join(f"{name} {count}" for name, count in split["sources"].items())
+        print(f"import sources    : {listed}")
+    if split["imported"]:
+        print(f"  imported: {', '.join(split['imported'][:8])}"
+              + (" ..." if len(split["imported"]) > 8 else ""))
+    if split["local"]:
+        print(f"  unrecorded: {', '.join(split['local'][:8])}"
+              + (" ..." if len(split["local"]) > 8 else ""))
+        print("  (unrecorded means no origin on file — imports recorded before this "
+              "ledger existed, and skills written by hand)")
+
+    if mirrored:
+        origins = sorted({str(Path(os.path.realpath(os.path.join(str(root), n, "SKILL.md"))).parent.parent)
+                          for n in mirrored})
         print("mirror origins    :")
         for origin in origins[:5]:
             print(f"  {origin}")

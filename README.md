@@ -165,6 +165,12 @@ python3 scripts/guide.py remove    # take it out
 | `/distill-status` | show the distillation queue and whether headless auth works |
 | `/status` | skill count, mirrored skills, knowledge base reachability |
 
+`/status` splits the tree into **mirrored** (symlinks into another tree),
+**imported** (recorded in `imports.json` at import time) and **unrecorded** (no
+origin on file — written by hand, or imported before the ledger existed). An
+imported skill is a plain copy, so the origin has to be written down when it
+happens; nothing else in the filesystem tells the two apart.
+
 Everything the commands do is also reachable from a shell, because a plugin that
 only works through a slash command cannot be scripted or tested:
 
