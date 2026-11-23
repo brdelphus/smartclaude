@@ -211,9 +211,16 @@ if ($marketplaces -match [regex]::Escape($MarketName)) {
     else { Write-Die "could not add the marketplace. Run it by hand: claude plugin marketplace add $RepoRoot" }
 }
 
+# An installed plugin is the common case on a machine that has run this before, and
+# reporting "already installed" left the cached copy frozen at whatever was there the
+# first time: new commands and fixes never reached the user. Re-install it from the
+# marketplace refreshed above.
 $installed = (& $claudeExe plugin list 2>&1) -join "`n"
 if ($installed -match [regex]::Escape($PluginName)) {
-    Write-Ok "plugin '$PluginName' already installed"
+    & $claudeExe plugin uninstall "$PluginName@$MarketName" *> $null
+    & $claudeExe plugin install "$PluginName@$MarketName" *> $null
+    if ($LASTEXITCODE -eq 0) { Write-Ok "plugin '$PluginName' reinstalled from the current tree" }
+    else { Write-Die "could not reinstall the plugin. Run it by hand: claude plugin install $PluginName@$MarketName" }
 } else {
     & $claudeExe plugin install "$PluginName@$MarketName" *> $null
     if ($LASTEXITCODE -eq 0) { Write-Ok "plugin '$PluginName' installed" }

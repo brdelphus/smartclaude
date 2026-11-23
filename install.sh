@@ -208,8 +208,15 @@ else
     || die "could not add the marketplace. Run it by hand: claude plugin marketplace add $REPO_ROOT"
 fi
 
+# A plugin that is already installed is the common case on a machine that has run this
+# before, and reporting "already installed" left the cached copy frozen at whatever was
+# there the first time: new commands and fixes never reached the user, and reinstalling
+# by hand was the only cure. Re-install it from the marketplace refreshed above.
 if "$CLAUDE_BIN" plugin list 2>/dev/null | grep -q "$PLUGIN_NAME"; then
-  ok "plugin '$PLUGIN_NAME' already installed"
+  "$CLAUDE_BIN" plugin uninstall "${PLUGIN_NAME}@${MARKET_NAME}" >/dev/null 2>&1 || true
+  "$CLAUDE_BIN" plugin install "${PLUGIN_NAME}@${MARKET_NAME}" >/dev/null 2>&1 \
+    && ok "plugin '$PLUGIN_NAME' reinstalled from the current tree" \
+    || die "could not reinstall the plugin. Run it by hand: claude plugin install ${PLUGIN_NAME}@${MARKET_NAME}"
 else
   "$CLAUDE_BIN" plugin install "${PLUGIN_NAME}@${MARKET_NAME}" >/dev/null 2>&1 \
     && ok "plugin '$PLUGIN_NAME' installed" \
