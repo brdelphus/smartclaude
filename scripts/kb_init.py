@@ -95,15 +95,18 @@ def _venv_python(venv: Path) -> Path:
     return venv / ("Scripts/python.exe" if os.name == "nt" else "bin/python")
 
 
-def _has_chromadb(python: Path) -> bool:
+def _has_module(python: Path, module: str) -> bool:
     try:
-        proc = subprocess.run(
-            [str(python), "-c", "import chromadb"],
+        return subprocess.run(
+            [str(python), "-c", f"import {module}"],
             capture_output=True, timeout=120,
-        )
-        return proc.returncode == 0
+        ).returncode == 0
     except (OSError, subprocess.SubprocessError):
         return False
+
+
+def _has_chromadb(python: Path) -> bool:
+    return _has_module(python, "chromadb")
 
 
 def _say(verbose: bool, message: str) -> None:
@@ -182,26 +185,53 @@ def _build_venv(root: Path, verbose: bool = False) -> tuple[bool, str]:
             return False, ("the environment has no pip and ensurepip could not provide one. "
                            "On Debian or Ubuntu install it first: sudo apt install python3-venv")
 
+    # tiktoken first, and on its own: it is a few megabytes and the audit needs it to
+    # measure skills instead of estimating from character count. If chromadb fails for
+    # being enormous, the audit must still work.
+    installed = []
+    if not _has_module(python, "tiktoken"):
+        _say(verbose, "installing tiktoken so the skill audit measures instead of estimating")
+        ok_tok, msg_tok = _pip_install(python, "tiktoken", verbose)
+        if ok_tok:
+            installed.append("tiktoken")
+        else:
+            _say(verbose, f"tiktoken unavailable ({msg_tok}) — the audit will estimate")
+
     if _has_chromadb(python):
-        return True, "chromadb already present"
+        installed.append("chromadb already present")
+        return True, ", ".join(installed)
 
     _say(verbose, "installing chromadb — 84 packages: about 106 MB to download and "
                   "490 MB on disk (onnxruntime alone is 78 MB). Minutes on a slow link.")
-    # No --user fallback: pip refuses it outright inside a virtualenv ("Can not
-    # perform a '--user' install"), so the retry could never succeed and only buried
-    # the first, real error under a second, invented one.
+    ok_chroma, msg_chroma = _pip_install(python, "chromadb", verbose)
+    if ok_chroma:
+        installed.append("chromadb")
+        return True, ", ".join(installed) if installed else "chromadb installed"
+    if installed:
+        # Partial success still leaves the audit working; say what got in and what did not.
+        return False, f"{', '.join(installed)}, but {msg_chroma}"
+    return False, msg_chroma
+
+
+def _pip_install(python: Path, package: str, verbose: bool = False) -> tuple[bool, str]:
+    """Install one package into the venv. No --user retry: pip refuses it there.
+
+    "Can not perform a '--user' install" — inside a virtualenv the user site is not
+    visible, so a retry with --user could never succeed and only buried the first,
+    real error under a second, invented one.
+    """
     cmd = [str(python), "-m", "pip", "install"]
     if not verbose:
         cmd.append("--quiet")
-    cmd.append("chromadb")
+    cmd.append(package)
     try:
         code, output = _run(cmd, verbose, VENV_TIMEOUT)
     except (OSError, subprocess.SubprocessError) as exc:
         return False, f"could not run pip: {exc.__class__.__name__}"
-    if code == 0 and _has_chromadb(python):
-        return True, "chromadb installed"
+    if code == 0 and _has_module(python, package):
+        return True, f"{package} installed"
     tail = output.strip().splitlines()[-1:] or ["no output"]
-    return False, f"could not install chromadb: {tail[0][:200]}"
+    return False, f"could not install {package}: {tail[0][:200]}"
 
 
 def _interpreter(root: Path) -> Path:

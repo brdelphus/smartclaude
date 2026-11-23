@@ -22,6 +22,7 @@ import glob
 import json
 import os
 import re
+import subprocess
 import sys
 
 SPEC = {"name_max": 64, "desc_max": 1024, "body_lines_max": 500, "body_tokens_max": 5000}
@@ -39,6 +40,52 @@ def count_tokens(text: str):
         return len(tiktoken.get_encoding("o200k_base").encode(text)), "measured"
     except Exception:
         return round(len(text) / 4.606), "estimated"
+
+
+def _reexec_with_tokenizer(argv: list[str]) -> None:
+    """Switch to an interpreter that has tiktoken, at most once.
+
+    The whole point of this file is to say what a skill costs. Estimating from the
+    character count is guesswork, and the difference matters at the 5,000-token
+    ceiling. tiktoken is a small optional dependency living in the knowledge base's
+    venv, which the installer creates — so instead of asking every caller to know
+    which interpreter to use, the audit moves itself there.
+    """
+    if os.environ.get("SMARTCLAUDE_AUDIT_REEXEC"):
+        return
+    try:
+        import tiktoken  # noqa: F401
+
+        return
+    except ImportError:
+        pass
+
+    roots = []
+    configured = os.environ.get("SMARTCLAUDE_KB_REPO")
+    if configured:
+        roots.append(configured)
+    share = os.environ.get("XDG_DATA_HOME") or str(os.path.expanduser("~/.local/share"))
+    roots.append(os.path.join(share, "smartclaude", "kb"))
+
+    for root in roots:
+        for rel in (("bin", "python"), ("Scripts", "python.exe")):
+            candidate = os.path.join(root, ".venv", *rel)
+            if not os.path.isfile(candidate):
+                continue
+            try:
+                probe = subprocess.run([candidate, "-c", "import tiktoken"],
+                                       capture_output=True, timeout=60)
+            except (OSError, subprocess.SubprocessError):
+                continue
+            if probe.returncode != 0:
+                continue
+            os.environ["SMARTCLAUDE_AUDIT_REEXEC"] = "1"
+            sys.stdout.flush()
+            sys.stderr.flush()
+            try:
+                os.execv(candidate, [candidate, os.path.abspath(__file__), *argv])
+            except OSError:
+                return
 
 
 def parse(path: str):
@@ -137,6 +184,8 @@ def audit(root: str):
 
 
 def main() -> int:
+    _reexec_with_tokenizer(sys.argv[1:])
+
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("root", nargs="?", default=os.path.expanduser("~/.claude/skills"))
     ap.add_argument("--json", action="store_true")

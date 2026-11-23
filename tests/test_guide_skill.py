@@ -12,6 +12,7 @@ Run: python3 tests/test_guide_skill.py
 from __future__ import annotations
 
 import json
+import os
 import subprocess
 import sys
 import tempfile
@@ -119,6 +120,20 @@ def main() -> int:
     check("description says when", row.get("says_when") is True, str(row.get("says_when")))
     check("under the token ceiling", row.get("tokens", 0) < 5000, str(row.get("tokens")))
     check("under the line ceiling", row.get("lines", 0) < 500, str(row.get("lines")))
+
+    print("the report never passes an estimate off as measured")
+    # The audit re-launches itself under an interpreter that has tiktoken. With the
+    # re-launch disabled it must still say, in plain words, which mode produced the
+    # numbers — a guessed token count presented as measured is worse than no count.
+    plain = subprocess.run(
+        [sys.executable, str(REPO / "scripts" / "audit.py"), str(fresh)],
+        capture_output=True, text=True,
+        env=dict(os.environ, SMARTCLAUDE_AUDIT_REEXEC="1"),
+    )
+    check("audit runs without the re-launch", plain.returncode == 0, plain.stderr[-300:])
+    check("declares the token mode",
+          "MEASURED with tiktoken" in plain.stdout or "ESTIMATED from character count" in plain.stdout,
+          plain.stdout[:200])
 
     print()
     if failures:

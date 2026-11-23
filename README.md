@@ -310,8 +310,17 @@ and reports the four things that actually cost you:
 Plus, in a tree that mirrors by symlink: which skills are links into another tree,
 and which links point at nothing — a skill that silently stopped existing.
 
-Token counts are exact only when `tiktoken` is installed; the report says which
-mode it used and never presents an estimate as measured.
+**Token counts are measured, not estimated.** `tiktoken` is installed with the
+knowledge base's environment, and `audit.py` re-launches itself under that
+interpreter when the one it started with has no tiktoken — so `python3
+scripts/audit.py` measures even when the system Python has nothing installed. The
+report always states which mode produced the numbers, and never presents an estimate
+as measured.
+
+The difference is not academic. On a 201-skill tree the character-based estimate
+reported **16** skills over the 5,000-token ceiling; measuring found **34**. If you
+are about to spend an afternoon splitting skills, you want the second number:
+`SMARTCLAUDE_AUDIT_REEXEC=1` skips the re-launch and forces the current interpreter.
 
 ## Feature: distillation
 
