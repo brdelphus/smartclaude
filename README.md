@@ -12,6 +12,10 @@ adds those, and nothing else.
 **It ships with zero skills.** A bundled skill would sit in context and fire before
 you decided you wanted it.
 
+> **Status: Claude Code only.** The tooling does not run on Claude Desktop or
+> claude.ai — their code execution is a remote sandbox, so a script cannot inspect
+> your disk. The skills themselves do port. Details in [Scope](#scope).
+
 ## Origin
 
 If I could install Hermes here, I would use Hermes. I would rather use it a
@@ -292,11 +296,44 @@ tell us, or open an issue with the output.
 
 ## Scope
 
-Runs on **Claude Code and nothing else**. The skills root resolves from
+Runs on **Claude Code and nothing else — for now**. The skills root resolves from
 `CLAUDE_CONFIG_DIR` or `~/.claude`, full stop. No foreign directory is read unless
 you name a source with `--from`, and mirroring refuses without `--src` rather than
 guessing: a guessed default works on one machine and silently does nothing on the
 next.
+
+### Claude Desktop and claude.ai: not supported
+
+Skills themselves are portable — Agent Skills is an open standard, and custom
+skills go into the desktop app by zipping the folder and uploading it under
+`Customize > Skills`, with *Code execution and file creation* enabled. **What does
+not port is the tooling.**
+
+| | Claude Code | Desktop / claude.ai |
+|---|---|---|
+| `SKILL.md` skills | ✅ directory | ✅ upload the folder as a ZIP |
+| `/audit-skills`, `/import-skills`, `/recall`, `/remember` | ✅ | ❌ |
+| Hooks (`SessionStart`, `PreToolUse`, `Stop`, …) | ✅ | ❌ |
+| Subagents | ✅ | ❌ |
+| Plugin marketplace / `claude plugin install` | ✅ | ❌ |
+| The scripts themselves | ✅ | ❌ |
+
+Hooks, slash commands, subagents and the plugin installer are Claude Code harness
+features with no desktop equivalent.
+
+The scripts fail for a different reason: **the desktop's code execution runs in a
+remote sandbox, not on your machine**. `audit.py` walking `~/.claude/skills`,
+`import_skills.py` reading a local Cursor tree, `sync_skills.py` making a symlink,
+`worker.py` invoking `claude -p` — none of them can see the disk they are meant to
+inspect.
+
+The realistic path to the desktop is an **MCP server**, since MCP runs locally over
+stdio and the desktop client speaks it natively. That would carry `audit`,
+`import`, `recall` and `remember` across. Hooks would still not port — nothing on
+the desktop intercepts a prompt before it reaches the model — and neither would
+end-of-session distillation.
+
+Until that exists: **Claude Code only.**
 
 ## Credit
 
