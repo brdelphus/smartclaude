@@ -1,0 +1,13 @@
+{
+  "name": "smartclaude",
+  "version": "0.1.0",
+  "description": "Skills that learn from use, backed by an external knowledge base. Symlink-aware by construction.",
+  "author": { "name": "Rodrigo Amaru Graeff" },
+  "license": "MIT",
+  "keywords": ["skills", "memory", "knowledge-base", "distillation", "curator"],
+  "components": {
+    "commands": "commands/",
+    "agents": "agents/",
+    "hooks": "hooks/hooks.json"
+  }
+}

@@ -1,0 +1,11 @@
+{
+  "name": "smartclaude",
+  "owner": { "name": "Rodrigo Amaru Graeff" },
+  "plugins": [
+    {
+      "name": "smartclaude",
+      "source": "./",
+      "description": "Mirrored skills that can be edited safely, plus on-demand recall from an external knowledge base."
+    }
+  ]
+}
